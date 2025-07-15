@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+vendor/
+.pnp/
+.pnp.js
+
+# Build
+dist/
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Data
+data/
+*.db
+*.sqlite
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.production
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary
+tmp/
+temp/
+
+# TausePro specific
+uploads/
+invoices/
+temp-exports/ 

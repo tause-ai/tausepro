@@ -1,0 +1,124 @@
+version: '3.9'
+
+services:
+  # Frontend - Landing Page (tause.pro)
+  landing:
+    build: ./apps/landing
+    ports:
+      - "3000:3000"
+    environment:
+      - PUBLIC_API_URL=http://localhost:8080
+      - PUBLIC_APP_URL=http://localhost:5173
+    volumes:
+      - ./apps/landing:/app
+    labels:
+      - "traefik.http.routers.landing.rule=Host(`tause.localhost`)"
+    
+  # Frontend - Dashboard (app.tause.pro)
+  dashboard:
+    build: ./apps/dashboard
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+      - VITE_PAYWALL_ENABLED=true
+    volumes:
+      - ./apps/dashboard:/app
+    labels:
+      - "traefik.http.routers.app.rule=Host(`app.tause.localhost`)"
+      
+  # Backend - MCP Server (api.tause.pro)
+  mcp-server:
+    build: ./services/mcp-server
+    ports:
+      - "8080:8080"
+    environment:
+      - POCKETBASE_URL=http://pocketbase:8090
+      - REDIS_URL=redis://redis:6379
+      - PAYWALL_ENABLED=true
+      - FREE_TIER_API_CALLS=100
+      - FREE_TIER_AGENTS=3
+    depends_on:
+      - pocketbase
+      - redis
+    labels:
+      - "traefik.http.routers.api.rule=Host(`api.tause.localhost`)"
+      
+  # Backend - PocketBase
+  pocketbase:
+    image: ghcr.io/pocketbase/pocketbase:latest
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./data/pocketbase:/pb_data
+      - ./migrations:/pb_migrations
+    command: serve --http=0.0.0.0:8090
+    
+  # Cache & Rate Limiting (Paywall)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+    command: redis-server --appendonly yes
+    
+  # Analytics DB
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=tausepro_analytics
+      - POSTGRES_USER=tausepro
+      - POSTGRES_PASSWORD=tausepro_dev
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      
+  # E-commerce - Medusa
+  medusa:
+    build: ./services/e-commerce
+    ports:
+      - "9000:9000"
+    environment:
+      - DATABASE_URL=postgres://medusa:medusa@postgres-medusa:5432/medusa
+      - REDIS_URL=redis://redis:6379
+      - COLOMBIA_MODE=true
+    depends_on:
+      - postgres-medusa
+      - redis
+      
+  postgres-medusa:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=medusa
+      - POSTGRES_USER=medusa
+      - POSTGRES_PASSWORD=medusa
+    volumes:
+      - ./data/postgres-medusa:/var/lib/postgresql/data
+      
+  # Object Storage
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9001:9001"
+      - "9002:9002"
+    environment:
+      - MINIO_ROOT_USER=tausepro
+      - MINIO_ROOT_PASSWORD=tausepro_dev
+    volumes:
+      - ./data/minio:/data
+    command: server /data --console-address ":9002"
+    
+  # Reverse Proxy (simula producción)
+  traefik:
+    image: traefik:v2.10
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8081:8080" # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock 

@@ -1,0 +1,41 @@
+{
+  "service": "e-commerce",
+  "description": "Medusa.js optimizado para PYMEs Colombia",
+  
+  "plugins": {
+    "payment": {
+      "medusa-payment-wompi": "PSE, tarjetas, Nequi, DaviPlata",
+      "medusa-payment-efecty": "Pagos en efectivo",
+      "medusa-payment-baloto": "Puntos Baloto"
+    },
+    "tax": {
+      "medusa-tax-colombia": "IVA (0%, 5%, 19%), ReteFuente, ICA"
+    },
+    "shipping": {
+      "medusa-shipping-servientrega": "Principal carrier",
+      "medusa-shipping-tcc": "Alternativa económica",
+      "medusa-shipping-coordinadora": "Cobertura rural"
+    },
+    "invoice": {
+      "medusa-invoice-dian": "Facturación electrónica DIAN"
+    }
+  },
+  
+  "customizations": {
+    "prices": "COP sin decimales ($123.456)",
+    "checkout": {
+      "document_validation": "CC/NIT obligatorio",
+      "address_format": "Nomenclatura colombiana",
+      "phone_validation": "+57 format"
+    },
+    "tax_calculation": "Por ciudad/departamento",
+    "shipping_zones": "1.123 municipios Colombia"
+  },
+  
+  "pyme_features": {
+    "simplified_inventory": "Control básico de stock",
+    "whatsapp_orders": "Pedidos por WhatsApp",
+    "cash_on_delivery": "Contra entrega",
+    "installments": "Cuotas sin interés"
+  }
+} 

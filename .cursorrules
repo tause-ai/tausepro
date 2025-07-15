@@ -1,0 +1,136 @@
+{
+  "project": "tausepro",
+  "description": "Plataforma SaaS multi-tenant MCP para PYMEs colombianas",
+  
+  "stack": {
+    "frontend": {
+      "landing": ["astro", "react", "tailwindcss", "typescript"],
+      "dashboard": ["vite", "react", "shadcn-ui", "typescript", "zustand", "react-hook-form", "zod"],
+      "mobile": ["react-native", "expo"],
+      "ui": ["recharts", "tanstack-table", "lucide-react"]
+    },
+    "backend": {
+      "primary": ["go", "fiber", "pocketbase"],
+      "services": ["nats", "redis", "postgresql", "minio"],
+      "ecommerce": ["medusa.js", "node.js"],
+      "protocols": ["mcp", "websocket", "rest"]
+    },
+    "infrastructure": {
+      "containerization": ["docker", "docker-compose"],
+      "orchestration": ["kubernetes", "helm"],
+      "ci-cd": ["github-actions", "make"],
+      "monitoring": ["prometheus", "grafana", "loki"]
+    }
+  },
+  
+  "domains": {
+    "production": {
+      "landing": "tause.pro",
+      "app": "app.tause.pro",
+      "api": "api.tause.pro",
+      "tenants": "{tenant}.tause.pro"
+    },
+    "relationship": "TausePro consumes TauseStack framework as engine"
+  },
+  
+  "paywall": {
+    "strategy": "Freemium con límites duros",
+    "plans": ["gratis", "starter", "growth", "scale"],
+    "enforcement": "Redis counters + Go middleware",
+    "free_limits": {
+      "api_calls": 100,
+      "mcp_agents": 3,
+      "whatsapp_messages": 50
+    }
+  },
+  
+  "conventions": {
+    "language": "es",
+    "comments": "español",
+    "naming": {
+      "go": "camelCase para variables, PascalCase para tipos/structs",
+      "react": "PascalCase para componentes, camelCase para funciones",
+      "files": "kebab-case para archivos, PascalCase para componentes React"
+    },
+    "style": {
+      "go": "gofmt + golangci-lint",
+      "javascript": "prettier + eslint",
+      "css": "tailwindcss utility-first"
+    },
+    "testing": {
+      "required": true,
+      "go": "testify para assertions, mockery para mocks",
+      "react": "vitest + testing-library",
+      "e2e": "playwright"
+    }
+  },
+  
+  "colombia_context": {
+    "currency": "COP (sin decimales)",
+    "tax_system": "IVA (0%, 5%, 19%), ReteFuente",
+    "payment_methods": ["PSE", "Nequi", "Wompi", "DaviPlata", "Efecty"],
+    "shipping": ["Servientrega", "TCC", "Interrapidisimo", "Coordinadora"],
+    "compliance": ["DIAN", "Habeas Data", "Cámara de Comercio"],
+    "documents": ["CC", "NIT", "CE", "TI"],
+    "target_market": "PYMEs colombianas (97% del tejido empresarial)"
+  },
+  
+  "architecture_patterns": {
+    "backend": {
+      "pattern": "Domain-Driven Design + Clean Architecture",
+      "layers": ["handlers", "services", "repositories", "models"],
+      "middleware": ["auth", "tenant", "paywall", "ratelimit", "logging"]
+    },
+    "frontend": {
+      "pattern": "Feature-based structure",
+      "state": "Zustand para global, React Context para feature-specific",
+      "routing": "React Router v6 con lazy loading"
+    },
+    "integration": {
+      "with_tausestack": "API consumption for core multi-tenant features",
+      "deployment": "Standalone but can connect to TauseStack engine"
+    }
+  },
+  
+  "performance_requirements": {
+    "api_latency": "<200ms p99 desde Colombia",
+    "uptime": "99.9%",
+    "concurrent_users": "10,000+",
+    "requests_per_second": "100,000+",
+    "infrastructure_cost": "<$50 USD/mes para 1,000 tenants"
+  },
+  
+  "security": {
+    "auth": "JWT (15min) + Refresh tokens (7 days)",
+    "encryption": "TLS 1.3 transit, AES-256 rest",
+    "compliance": ["Habeas Data", "PCI DSS nivel 1", "ISO 27001"],
+    "colombia_specific": ["Ley 1581 de 2012", "Circular Externa 002 de 2018"]
+  },
+  
+  "ai_assistant_instructions": {
+    "always": [
+      "Considerar el contexto PYME colombiano",
+      "Implementar paywall desde el inicio",
+      "Comentar código en español",
+      "Incluir manejo de errores completo",
+      "Seguir patrones DDD en Go",
+      "Usar shadcn/ui para componentes UI",
+      "Considerar multi-tenancy en cada feature",
+      "Optimizar para Colombia (timezone, formato moneda, etc)",
+      "Mantener compatibilidad con TauseStack si es relevante"
+    ],
+    "never": [
+      "Hardcodear credenciales",
+      "Ignorar rate limiting del paywall",
+      "Usar localStorage para datos sensibles",
+      "Mezclar lógica de negocio con UI",
+      "Ignorar contexto colombiano",
+      "Asumir conocimiento técnico del usuario PYME"
+    ],
+    "code_style": {
+      "go": "Siempre usar error wrapping con fmt.Errorf",
+      "react": "Hooks personalizados para lógica reutilizable",
+      "typescript": "Tipos estrictos, evitar 'any'"
+    }
+  }
+} 
