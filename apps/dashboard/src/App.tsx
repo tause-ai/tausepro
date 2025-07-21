@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
-import { useAuth } from '@/store/auth'
-import { usePaywall } from '@/store/paywall'
+import { useEffect, Suspense } from 'react'
+import { useAuthStore } from '@/store/auth'
 
 // Layout components
 import DashboardLayout from '@/components/layout/DashboardLayout'
@@ -27,7 +26,7 @@ function LoadingPage() {
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading } = useAuthStore()
   
   if (isLoading) {
     return <LoadingPage />
@@ -42,7 +41,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Public route wrapper (redirect to dashboard if authenticated)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading } = useAuthStore()
   
   if (isLoading) {
     return <LoadingPage />
@@ -56,77 +55,59 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 function App() {
-  const { refreshUser, isAuthenticated } = useAuth()
-  const { refreshUsage } = usePaywall()
+  const { refreshUser } = useAuthStore()
   
   // Initialize app data
   useEffect(() => {
-    const initializeApp = async () => {
-      // Try to refresh user data if token exists
-      const token = localStorage.getItem('authToken')
-      if (token) {
-        try {
-          await refreshUser()
-        } catch (error) {
-          console.error('Failed to refresh user:', error)
-        }
-      }
+    try {
+      refreshUser()
+    } catch (error) {
+      console.error('Error initializing app:', error)
     }
-    
-    initializeApp()
   }, [refreshUser])
-  
-  // Refresh usage data when authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      refreshUsage()
-      
-      // Refresh usage every 5 minutes
-      const interval = setInterval(refreshUsage, 5 * 60 * 1000)
-      return () => clearInterval(interval)
-    }
-  }, [isAuthenticated, refreshUsage])
   
   return (
     <Router>
-      <div className="min-h-screen bg-background font-sans antialiased">
-        <Routes>
-          {/* Public routes */}
-          <Route 
-            path="/login" 
-            element={
-              <PublicRoute>
-                <LoginPage />
-              </PublicRoute>
-            } 
-          />
-          
-          {/* Protected dashboard routes */}
-          <Route 
-            path="/" 
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            {/* Default redirect to dashboard */}
-            <Route index element={<Navigate to="/dashboard" replace />} />
+      <Suspense fallback={<LoadingPage />}>
+        <div className="min-h-screen bg-background font-sans antialiased">
+          <Routes>
+            {/* Public routes */}
+            <Route 
+              path="/login" 
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              } 
+            />
             
-            {/* Dashboard pages */}
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="agents" element={<AgentsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            {/* Protected dashboard routes */}
+            <Route 
+              path="/" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              {/* Default redirect to dashboard */}
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              
+              {/* Dashboard pages */}
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="agents" element={<AgentsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              
+              {/* Catch all - redirect to dashboard */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Route>
             
-            {/* Catch all - redirect to dashboard */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Route>
-          
-          {/* Catch all public routes - redirect to login */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </div>
+            {/* Catch all public routes - redirect to login */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </div>
+      </Suspense>
     </Router>
   )
 }

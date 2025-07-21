@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/tausepro/mcp-server/internal/models"
+	"mcp-server/internal/models"
 )
 
 // GetDashboard retorna el dashboard principal para la PYME

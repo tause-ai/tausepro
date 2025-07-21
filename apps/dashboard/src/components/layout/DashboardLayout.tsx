@@ -1,9 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { useAuth } from '@/store/auth'
-import { usePaywall, usePlanInfo } from '@/store/paywall'
+import { useAuthStore } from '@/store/auth'
 import { Button } from '@/components/ui/button'
-import { PlanBadge } from '@/components/ui/badge'
-import { formatCurrency } from '@/lib/utils'
 
 // Iconos (usando emojis para simplicidad - en producción usar Lucide)
 const icons = {
@@ -26,9 +23,7 @@ const navigation = [
 
 export default function DashboardLayout() {
   const location = useLocation()
-  const { user, tenant, logout } = useAuth()
-  const { plan, isBlocked } = usePaywall()
-  const planInfo = usePlanInfo()
+  const { user, tenant, logout } = useAuthStore()
 
   const handleLogout = () => {
     logout()
@@ -37,10 +32,10 @@ export default function DashboardLayout() {
   return (
     <div className="min-h-screen bg-background">
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border">
+      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-slate-200">
         <div className="flex flex-col h-full">
           {/* Header del sidebar */}
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-slate-200">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
                 <span className="text-sm font-bold text-primary-foreground">TP</span>
@@ -57,27 +52,15 @@ export default function DashboardLayout() {
           </div>
 
           {/* Plan actual */}
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-slate-200">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Plan actual</span>
-                <PlanBadge plan={plan} />
+                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Gratis</span>
               </div>
               <div className="text-xs text-muted-foreground">
-                {formatCurrency(planInfo.price)}/mes
+                $0/mes
               </div>
-              {plan !== 'scale' && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full text-xs"
-                  asChild
-                >
-                  <Link to="/settings?tab=billing">
-                    {icons.upgrade} Actualizar
-                  </Link>
-                </Button>
-              )}
             </div>
           </div>
 
@@ -85,39 +68,28 @@ export default function DashboardLayout() {
           <nav className="flex-1 p-4 space-y-1">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href
-              const isFeatureBlocked = item.requiredPlan && isBlocked('analytics')
               
               return (
                 <Link
                   key={item.href}
-                  to={isFeatureBlocked ? '#' : item.href}
+                  to={item.href}
                   className={`
                     flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-colors
                     ${isActive 
                       ? 'bg-primary text-primary-foreground' 
-                      : isFeatureBlocked
-                        ? 'text-muted-foreground cursor-not-allowed opacity-50'
-                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                      : 'text-foreground hover:bg-accent hover:text-accent-foreground'
                     }
                   `}
-                  onClick={(e) => {
-                    if (isFeatureBlocked) {
-                      e.preventDefault()
-                    }
-                  }}
                 >
                   <span>{item.icon}</span>
                   <span className="flex-1">{item.name}</span>
-                  {isFeatureBlocked && (
-                    <span className="text-xs">🔒</span>
-                  )}
                 </Link>
               )
             })}
           </nav>
 
           {/* Footer del sidebar */}
-          <div className="p-4 border-t border-border">
+          <div className="p-4 border-t border-slate-200">
             <div className="space-y-3">
               {/* Info del usuario */}
               <div className="flex items-center space-x-3">
@@ -152,7 +124,7 @@ export default function DashboardLayout() {
       {/* Contenido principal */}
       <div className="pl-64">
         {/* Header superior */}
-        <header className="sticky top-0 z-40 bg-background border-b border-border px-6 py-4">
+        <header className="sticky top-0 z-40 bg-background border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <h1 className="text-lg font-semibold text-foreground">

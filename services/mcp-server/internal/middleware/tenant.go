@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/tausepro/mcp-server/internal/models"
-	"github.com/tausepro/mcp-server/pkg/errors"
+	"mcp-server/internal/models"
+	"mcp-server/pkg/errors"
 )
 
 // TenantMiddleware maneja la identificación y contexto del tenant (PYME)

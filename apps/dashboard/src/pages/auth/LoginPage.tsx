@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { useAuth } from '@/store/auth'
+import { useAuthStore } from '@/store/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPhone } from '@/lib/utils'
 
 export default function LoginPage() {
-  const { login, isLoading } = useAuth()
+  const { login, isLoading } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

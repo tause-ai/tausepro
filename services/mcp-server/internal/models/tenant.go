@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 // Tenant representa una PYME en TausePro
 type Tenant struct {
 	ID        string         `json:"id" db:"id"`

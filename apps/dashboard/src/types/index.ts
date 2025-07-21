@@ -113,28 +113,45 @@ export interface ShippingCarrier {
   isEnabled: boolean
 }
 
-// Tipos del dashboard
+// Tipos del dashboard y API
+export interface LoginResponse {
+  token: string
+  user: User
+  tenant: Tenant
+}
+
+export interface RefreshResponse {
+  token: string
+}
+
+export interface UsageDetail {
+  used: number
+  limit: number
+  percentage: number
+}
+
 export interface DashboardMetrics {
-  revenue: {
-    current: number
-    previous: number
-    growth: number
+  total_api_calls: number
+  total_agents: number
+  active_chats: number
+  messages_sent: number
+}
+
+export interface RecentActivity {
+  id: string
+  type: 'agent_execution' | 'chat_message' | 'system_alert'
+  description: string
+  timestamp: string
+}
+
+export interface DashboardResponse {
+  metrics: DashboardMetrics
+  usage: {
+    api_calls: UsageDetail
+    agents: UsageDetail
   }
-  orders: {
-    current: number
-    previous: number
-    growth: number
-  }
-  customers: {
-    current: number
-    previous: number
-    growth: number
-  }
-  agents: {
-    active: number
-    total: number
-    conversations: number
-  }
+  recent_activity: RecentActivity[]
+  current_plan: Plan
 }
 
 export interface AnalyticsData {
@@ -210,11 +227,13 @@ export interface ApiError {
 export interface AuthState {
   user: User | null
   tenant: Tenant | null
+  token: string | null
   isAuthenticated: boolean
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
   refreshUser: () => Promise<void>
+  setToken: (token: string) => void
 }
 
 export interface PaywallState {

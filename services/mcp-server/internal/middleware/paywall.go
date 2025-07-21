@@ -7,9 +7,14 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
-	"github.com/tausepro/mcp-server/internal/models"
-	"github.com/tausepro/mcp-server/pkg/errors"
+	"mcp-server/internal/models"
+	"mcp-server/pkg/errors"
 )
+
+// Temporal: usar imports para evitar errores de compilación
+var _ = strconv.Itoa
+var _ = time.Now
+var _ = redis.NewClient
 
 // PaywallMiddleware enforza los límites del paywall para PYMEs
 func PaywallMiddleware() fiber.Handler {

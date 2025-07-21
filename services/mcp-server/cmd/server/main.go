@@ -1,149 +1,127 @@
 package main
 
 import (
-	"log"
-	"os"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/joho/godotenv"
-
-	"github.com/tausepro/mcp-server/internal/handlers"
-	"github.com/tausepro/mcp-server/internal/middleware"
-	"github.com/tausepro/mcp-server/internal/services"
-	"github.com/tausepro/mcp-server/internal/repositories"
-	"github.com/tausepro/mcp-server/pkg/colombia"
-	"github.com/tausepro/mcp-server/pkg/paywall"
+    "log"
+    "os"
+    
+    "github.com/gofiber/fiber/v2"
+    "github.com/gofiber/fiber/v2/middleware/cors"
+    "github.com/gofiber/fiber/v2/middleware/logger"
 )
 
 func main() {
-	// Cargar variables de entorno
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment")
-	}
+    app := fiber.New()
+    
+    // Middleware
+    app.Use(logger.New())
+    app.Use(cors.New(cors.Config{
+        AllowOrigins: "http://localhost:5173,http://localhost:3000",
+        AllowCredentials: true,
+    }))
+    
+    // Health check
+    app.Get("/health", func(c *fiber.Ctx) error {
+        return c.JSON(fiber.Map{
+            "status": "ok",
+            "service": "tausepro-mcp-server",
+        })
+    })
+    
+    // API routes
+    api := app.Group("/api/v1")
+    
+    // Auth con PocketBase
+    api.Post("/auth/login", func(c *fiber.Ctx) error {
+        type LoginPayload struct {
+            Email    string `json:"email"`
+            Password string `json:"password"`
+        }
 
-	// Crear aplicación Fiber
-	app := fiber.New(fiber.Config{
-		AppName:      "TausePro MCP Server v1.0",
-		ErrorHandler: customErrorHandler,
-	})
+        var payload LoginPayload
+        if err := c.BodyParser(&payload); err != nil {
+            return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+                "error": "Cannot parse JSON",
+            })
+        }
 
-	// Middleware global
-	app.Use(recover.New())
-	app.Use(logger.New(logger.Config{
-		Format: "[${time}] ${status} - ${method} ${path} - ${latency}\n",
-	}))
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173,http://app.tause.localhost",
-		AllowCredentials: true,
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Tenant-ID",
-	}))
-
-	// Inicializar servicios
-	initServices(app)
-
-	// Inicializar rutas
-	setupRoutes(app)
-
-	// Health check para PYMEs
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":  "ok",
-			"service": "TausePro MCP Server",
-			"version": "1.0",
-			"colombia": "ready",
-		})
-	})
-
-	// Iniciar servidor
-	port := getEnv("PORT", "8080")
-	log.Printf("🚀 TausePro MCP Server iniciando en puerto %s", port)
-	log.Printf("🇨🇴 Optimizado para PYMEs colombianas")
-	
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatal("Error iniciando servidor:", err)
-	}
+        // MODO SIMULADO: PocketBase no está disponible
+        // Verificar credenciales simuladas
+        if payload.Email == "admin@example.com" && payload.Password == "password" {
+            // Autenticación exitosa simulada
+            return c.JSON(fiber.Map{
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEiLCJlbWFpbCI6ImFkbWluQGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzI1NzE2ODAwfQ.simulated-jwt-token-for-testing",
+                "user": fiber.Map{
+                    "id": "1",
+                    "email": payload.Email,
+                    "name": "Admin User",
+                    "role": "admin",
+                    "company_name": "TausePro Admin",
+                    "plan": "enterprise",
+                    "created": "2025-01-01T00:00:00Z",
+                    "updated": "2025-01-01T00:00:00Z",
+                },
+            })
+        } else if payload.Email == "demo@tause.pro" && payload.Password == "demo123" {
+            // Usuario demo
+            return c.JSON(fiber.Map{
+                "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjIiLCJlbWFpbCI6ImRlbW9AdGF1c2UucHJvIiwicm9sZSI6InVzZXIiLCJleHAiOjE3MjU3MTY4MDB9.simulated-jwt-token-for-demo-user",
+                "user": fiber.Map{
+                    "id": "2",
+                    "email": payload.Email,
+                    "name": "Demo User",
+                    "role": "user",
+                    "company_name": "Mi PYME",
+                    "plan": "gratis",
+                    "created": "2025-01-15T00:00:00Z",
+                    "updated": "2025-01-15T00:00:00Z",
+                },
+            })
+        }
+        
+        // Credenciales inválidas
+        return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+            "error": "Credenciales inválidas",
+            "message": "El email o la contraseña son incorrectos",
+        })
+    })
+    
+    // Dashboard
+    api.Get("/pymes/dashboard", func(c *fiber.Ctx) error {
+        return c.JSON(fiber.Map{
+            "metrics": fiber.Map{
+                "total_api_calls": 42,
+                "total_agents": 2,
+                "active_chats": 5,
+                "messages_sent": 123,
+            },
+            "usage": fiber.Map{
+                "api_calls": fiber.Map{
+                    "used": 42,
+                    "limit": 100,
+                    "percentage": 42,
+                },
+                "agents": fiber.Map{
+                    "used": 2,
+                    "limit": 3,
+                    "percentage": 66,
+                },
+            },
+            "recent_activity": []fiber.Map{
+                {
+                    "id": "1",
+                    "type": "agent_execution",
+                    "description": "Agente de ventas respondió cliente",
+                    "timestamp": "2025-01-17T10:30:00Z",
+                },
+            },
+        })
+    })
+    
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8081"
+    }
+    
+    log.Printf("⚡️ TausePro MCP Server running on :%s", port)
+    log.Fatal(app.Listen(":" + port))
 }
-
-func initServices(app *fiber.App) {
-	// Inicializar repositorios
-	// TODO: Configurar PocketBase
-	
-	// Inicializar servicios específicos Colombia
-	colombiaService := colombia.NewService()
-	paywallService := paywall.NewService()
-	
-	// Configurar en contexto de app
-	app.Locals("colombiaService", colombiaService)
-	app.Locals("paywallService", paywallService)
-}
-
-func setupRoutes(app *fiber.App) {
-	// API base
-	api := app.Group("/api/v1")
-	
-	// Middleware de autenticación y tenant
-	api.Use(middleware.TenantMiddleware())
-	api.Use(middleware.AuthMiddleware())
-	api.Use(middleware.PaywallMiddleware())
-	
-	// Rutas para PYMEs
-	setupPymeRoutes(api)
-	setupMCPRoutes(api)
-	setupColombiaRoutes(api)
-}
-
-func setupPymeRoutes(api fiber.Router) {
-	pymes := api.Group("/pymes")
-	
-	// Gestión de PYMEs
-	pymes.Get("/dashboard", handlers.GetDashboard)
-	pymes.Get("/analytics", handlers.GetAnalytics)
-	pymes.Post("/agents", handlers.CreateAgent)
-	pymes.Get("/agents", handlers.ListAgents)
-}
-
-func setupMCPRoutes(api fiber.Router) {
-	mcp := api.Group("/mcp")
-	
-	// Protocolo MCP para agentes
-	mcp.Post("/tools/execute", handlers.ExecuteMCPTool)
-	mcp.Get("/tools", handlers.ListMCPTools)
-	mcp.Post("/agents/:id/chat", handlers.ChatWithAgent)
-}
-
-func setupColombiaRoutes(api fiber.Router) {
-	colombia := api.Group("/colombia")
-	
-	// Integraciones específicas Colombia
-	colombia.Post("/validate/nit", handlers.ValidateNIT)
-	colombia.Post("/validate/cc", handlers.ValidateCC)
-	colombia.Post("/invoice/dian", handlers.CreateDIANInvoice)
-	colombia.Post("/payment/pse", handlers.ProcessPSEPayment)
-	colombia.Post("/shipping/servientrega", handlers.CreateShipment)
-}
-
-func customErrorHandler(c *fiber.Ctx, err error) error {
-	code := fiber.StatusInternalServerError
-	message := "Error interno del servidor"
-
-	if e, ok := err.(*fiber.Error); ok {
-		code = e.Code
-		message = e.Message
-	}
-
-	return c.Status(code).JSON(fiber.Map{
-		"error":   true,
-		"message": message,
-		"code":    code,
-	})
-}
-
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-} 

@@ -1,151 +1,125 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AuthState, User, Tenant } from '@/types'
+import { authApi } from '@/lib/api'
+import type { AuthState } from '@/types'
 
-// Simulación de API - En producción esto se conectaría al MCP Server
-const authApi = {
-  async login(email: string, password: string): Promise<{ user: User; tenant: Tenant; token: string }> {
-    // Simulación de autenticación
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    if (email === 'admin@example.com' && password === 'password') {
-      const tenant: Tenant = {
-        id: 'tenant_colombia_1',
-        name: 'Mi PYME Colombiana',
-        subdomain: 'mipyme',
-        plan: 'starter',
-        nit: '900.123.456-7',
-        city: 'Bogotá',
-        department: 'Bogotá D.C.',
-        industry: 'Comercio al por menor',
-        phone: '+57 301 234 5678',
-        email: 'info@mipyme.com.co',
-        address: 'Calle 93 #11-50, Bogotá',
-        isActive: true,
-        createdAt: '2024-01-15T08:00:00Z',
-        updatedAt: new Date().toISOString(),
-      }
-      
-      const user: User = {
-        id: 'user_colombia_1',
-        email: 'admin@example.com',
-        name: 'María García',
-        role: 'owner',
-        tenantId: tenant.id,
-        createdAt: '2024-01-15T08:00:00Z',
-        updatedAt: new Date().toISOString(),
-      }
-      
-      return { user, tenant, token: 'mock_jwt_token_123' }
-    }
-    
-    throw new Error('Credenciales incorrectas')
-  },
-  
-  async refreshUser(): Promise<{ user: User; tenant: Tenant }> {
-    // Simulación de refresh del usuario
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    const tenant: Tenant = {
-      id: 'tenant_colombia_1',
-      name: 'Mi PYME Colombiana',
-      subdomain: 'mipyme',
-      plan: 'starter',
-      nit: '900.123.456-7',
-      city: 'Bogotá',
-      department: 'Bogotá D.C.',
-      industry: 'Comercio al por menor',
-      phone: '+57 301 234 5678',
-      email: 'info@mipyme.com.co',
-      address: 'Calle 93 #11-50, Bogotá',
-      isActive: true,
-      createdAt: '2024-01-15T08:00:00Z',
-      updatedAt: new Date().toISOString(),
-    }
-    
-    const user: User = {
-      id: 'user_colombia_1',
-      email: 'admin@example.com',
-      name: 'María García',
-      role: 'owner',
-      tenantId: tenant.id,
-      createdAt: '2024-01-15T08:00:00Z',
-      updatedAt: new Date().toISOString(),
-    }
-    
-    return { user, tenant }
-  }
-}
-
-export const useAuth = create<AuthState>()(
+export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
       tenant: null,
+      token: null,
       isAuthenticated: false,
-      isLoading: false,
+      isLoading: true,
 
       login: async (email: string, password: string) => {
         set({ isLoading: true })
-        
         try {
-          const { user, tenant, token } = await authApi.login(email, password)
+          // Modo demo temporal para testing
+          if (email === 'admin@example.com' && password === 'password') {
+            const demoUser = {
+              id: 'demo-user-1',
+              email: 'admin@example.com',
+              name: 'Admin Demo',
+              role: 'admin' as const,
+              tenantId: 'demo-tenant-1',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+            const demoTenant = {
+              id: 'demo-tenant-1',
+              name: 'Mi PYME Colombia',
+              subdomain: 'demo',
+              plan: 'gratis' as const,
+              nit: '900123456-7',
+              city: 'Bogotá',
+              department: 'Cundinamarca',
+              industry: 'Tecnología',
+              phone: '+573001234567',
+              email: 'admin@example.com',
+              address: 'Calle 123 #45-67',
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+            const demoToken = 'demo-token-' + Date.now()
+            
+            set({ 
+              user: demoUser, 
+              tenant: demoTenant, 
+              token: demoToken, 
+              isAuthenticated: true, 
+              isLoading: false 
+            })
+            return
+          }
           
-          // Guardar token en localStorage
-          localStorage.setItem('authToken', token)
-          
-          set({
-            user,
-            tenant,
-            isAuthenticated: true,
-            isLoading: false,
-          })
-        } catch (error) {
+          // Intento de login real con PocketBase
+          const { token, user, tenant } = await authApi.login(email, password)
+          set({ user, tenant, token, isAuthenticated: true, isLoading: false })
+        } catch {
           set({ isLoading: false })
-          throw error
+          throw new Error('Invalid credentials')
         }
       },
 
       logout: () => {
-        // Limpiar token
-        localStorage.removeItem('authToken')
-        
-        set({
-          user: null,
-          tenant: null,
-          isAuthenticated: false,
-          isLoading: false,
-        })
+        set({ user: null, tenant: null, token: null, isAuthenticated: false })
       },
 
       refreshUser: async () => {
-        const token = localStorage.getItem('authToken')
-        if (!token) return
-        
-        set({ isLoading: true })
-        
-        try {
-          const { user, tenant } = await authApi.refreshUser()
-          
-          set({
-            user,
-            tenant,
-            isAuthenticated: true,
-            isLoading: false,
-          })
-        } catch (error) {
-          // Si falla el refresh, hacer logout
-          get().logout()
+        if (!get().token) {
+          set({ isLoading: false })
+          return
         }
+        set({ isLoading: true })
+        try {
+          // Asumiendo que refresh devuelve un nuevo usuario y tenant
+          // Esto puede necesitar ajuste según la implementación real del backend
+          // const { user, tenant } = await authApi.refresh(); 
+          // set({ user, tenant, isLoading: false });
+          console.log("Refresh logic to be implemented")
+          set({ isLoading: false }) // Temporalmente
+        } catch (error) {
+          get().logout() // Si el refresh falla, desloguear
+          set({ isLoading: false })
+        }
+      },
+
+      setToken: (token: string) => {
+        set({ token })
       },
     }),
     {
-      name: 'tausepro-auth',
-      partialize: (state) => ({
-        user: state.user,
-        tenant: state.tenant,
-        isAuthenticated: state.isAuthenticated,
-      }),
+      name: 'tausepro-auth-storage',
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name)
+          if (!str) return null
+          const { state } = JSON.parse(str)
+          return {
+            state: {
+              ...state,
+              // Asegurarnos que el estado de carga no se persista como true
+              isLoading: false,
+            },
+          }
+        },
+        setItem: (name, newValue) => {
+          // Persistir solo lo necesario
+          const { state } = newValue
+          const aGuardar = {
+            state: {
+              user: state.user,
+              tenant: state.tenant,
+              token: state.token,
+              isAuthenticated: state.isAuthenticated,
+            },
+          }
+          localStorage.setItem(name, JSON.stringify(aGuardar))
+        },
+        removeItem: (name) => localStorage.removeItem(name),
+      },
     }
   )
 ) 

@@ -79,39 +79,6 @@ const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
   },
 }
 
-// Simulación de API del paywall
-const paywallApi = {
-  async getUsage(): Promise<Usage> {
-    // En producción esto vendría del Redis del MCP Server
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    return {
-      apiCalls: 1247,
-      mcpAgents: 7,
-      whatsappMessages: 234,
-      period: 'monthly',
-      lastReset: '2024-12-01T00:00:00Z',
-    }
-  },
-  
-  async upgrade(plan: Plan): Promise<{ success: boolean; checkoutUrl?: string }> {
-    // Simulación de upgrade con redirect a Wompi/PSE
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    if (plan === 'gratis') {
-      return { success: true }
-    }
-    
-    // En producción esto generaría URL de pago real
-    const checkoutUrl = `https://checkout.wompi.co/p/tausepro-${plan}-colombia`
-    
-    return {
-      success: true,
-      checkoutUrl,
-    }
-  }
-}
-
 export const usePaywall = create<PaywallState>((set, get) => ({
   plan: 'gratis',
   usage: {
@@ -149,30 +116,15 @@ export const usePaywall = create<PaywallState>((set, get) => ({
   },
 
   upgrade: async (plan: Plan) => {
-    try {
-      const result = await paywallApi.upgrade(plan)
-      
-      if (result.success) {
-        if (result.checkoutUrl) {
-          // Redirigir a página de pago
-          window.open(result.checkoutUrl, '_blank')
-        } else {
-          // Plan gratuito, actualizar inmediatamente
-          set({ plan })
-        }
-      }
-    } catch (error) {
-      throw new Error('Error al procesar el upgrade. Intenta de nuevo.')
-    }
+    console.log('Upgrading to plan:', plan)
+    // Lógica de API real irá aquí
+    return Promise.resolve()
   },
 
   refreshUsage: async () => {
-    try {
-      const usage = await paywallApi.getUsage()
-      set({ usage })
-    } catch (error) {
-      console.error('Error refreshing usage:', error)
-    }
+    console.log('Refreshing usage data...')
+    // Lógica de API real irá aquí
+    return Promise.resolve()
   },
 }))
 

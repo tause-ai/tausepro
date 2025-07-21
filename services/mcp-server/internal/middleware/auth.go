@@ -6,8 +6,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/tausepro/mcp-server/internal/models"
-	"github.com/tausepro/mcp-server/pkg/errors"
+	"mcp-server/internal/models"
+	"mcp-server/pkg/errors"
 )
 
 // AuthMiddleware verifica la autenticación JWT para usuarios de PYMEs

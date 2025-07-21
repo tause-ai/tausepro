@@ -6,9 +6,12 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/tausepro/mcp-server/internal/models"
-	"github.com/tausepro/mcp-server/pkg/errors"
+	"mcp-server/internal/models"
+	"mcp-server/pkg/errors"
 )
+
+// Temporal: usar imports para evitar errores de compilación
+var _ = errors.NewPaywallError
 
 // ValidateNIT valida el NIT colombiano
 func ValidateNIT(c *fiber.Ctx) error {
@@ -123,6 +126,7 @@ func ValidateCC(c *fiber.Ctx) error {
 // CreateDIANInvoice crea una factura electrónica DIAN
 func CreateDIANInvoice(c *fiber.Ctx) error {
 	tenant := c.Locals("tenant").(*models.Tenant)
+	_ = tenant // Temporal para evitar error de compilación
 
 	var request struct {
 		CustomerNIT     string  `json:"customer_nit" validate:"required"`

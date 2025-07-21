@@ -11,6 +11,7 @@ services:
       - PUBLIC_APP_URL=http://localhost:5173
     volumes:
       - ./apps/landing:/app
+      - /app/node_modules
     labels:
       - "traefik.http.routers.landing.rule=Host(`tause.localhost`)"
     
@@ -24,6 +25,7 @@ services:
       - VITE_PAYWALL_ENABLED=true
     volumes:
       - ./apps/dashboard:/app
+      - /app/node_modules
     labels:
       - "traefik.http.routers.app.rule=Host(`app.tause.localhost`)"
       
@@ -46,7 +48,7 @@ services:
       
   # Backend - PocketBase
   pocketbase:
-    image: ghcr.io/pocketbase/pocketbase:latest
+    image: ghcr.io/muchobien/pocketbase:latest
     ports:
       - "8090:8090"
     volumes:
@@ -67,7 +69,7 @@ services:
   postgres:
     image: postgres:15-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_DB=tausepro_analytics
       - POSTGRES_USER=tausepro
@@ -79,7 +81,7 @@ services:
   medusa:
     build: ./services/e-commerce
     ports:
-      - "9000:9000"
+      - "9990:9000"
     environment:
       - DATABASE_URL=postgres://medusa:medusa@postgres-medusa:5432/medusa
       - REDIS_URL=redis://redis:6379
@@ -118,7 +120,7 @@ services:
       - "--providers.docker=true"
       - "--entrypoints.web.address=:80"
     ports:
-      - "80:80"
+      - "8000:80"
       - "8081:8080" # Traefik dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock 

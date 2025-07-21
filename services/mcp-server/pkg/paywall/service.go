@@ -2,7 +2,6 @@ package paywall
 
 import (
 	"fmt"
-	"time"
 )
 
 // Service servicio para manejo del paywall y límites de planes

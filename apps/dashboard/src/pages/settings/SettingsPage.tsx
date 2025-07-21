@@ -1,10 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PlanBadge } from '@/components/ui/badge'
-import { useAuth } from '@/store/auth'
+import { useAuthStore as useAuth } from '@/store/auth'
 import { usePaywall, usePlanInfo } from '@/store/paywall'
 
 export default function SettingsPage() {
-  const { user, tenant } = useAuth()
+  const { tenant } = useAuth()
   const { plan } = usePaywall()
   const planInfo = usePlanInfo()
 

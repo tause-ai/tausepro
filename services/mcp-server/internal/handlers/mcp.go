@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/tausepro/mcp-server/internal/models"
+	"mcp-server/internal/models"
 )
 
 // ExecuteMCPTool ejecuta una herramienta MCP
