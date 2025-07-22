@@ -23,6 +23,7 @@ import AdminSystemPage from '@/pages/admin/AdminSystemPage'
 import AdminUsersPage from '@/pages/admin/AdminUsersPage'
 import AdminReportsPage from '@/pages/admin/AdminReportsPage'
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
+import AdminAIIntegrationsPage from '@/pages/admin/AdminAIIntegrationsPage'
 
 // Loading component
 function LoadingPage() {
@@ -169,6 +170,7 @@ function App() {
                           <Route path="users" element={<AdminUsersPage />} />
                           <Route path="reports" element={<AdminReportsPage />} />
                           <Route path="settings" element={<AdminSettingsPage />} />
+                          <Route path="ai-integrations" element={<AdminAIIntegrationsPage />} />
                           
                           {/* Catch all admin routes - redirect to admin dashboard */}
                           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
