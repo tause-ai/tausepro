@@ -62,10 +62,10 @@ const navigation = [
     description: 'Analytics y métricas'
   },
   { 
-    name: 'Logs', 
-    href: '/admin/logs', 
-    icon: icons.logs,
-    description: 'Registros del sistema'
+    name: 'Configuración', 
+    href: '/admin/settings', 
+    icon: icons.settings,
+    description: 'Ajustes del Super Admin'
   },
 ]
 
@@ -245,7 +245,7 @@ function getPageTitle(pathname: string): string {
     '/admin/system': 'Configuración del Sistema',
     '/admin/users': 'Usuarios Administradores',
     '/admin/reports': 'Reportes y Analytics',
-    '/admin/logs': 'Logs del Sistema',
+    '/admin/settings': 'Configuración Super Admin',
   }
   
   return titles[pathname] || 'TausePro Admin'
@@ -261,7 +261,7 @@ function getPageDescription(pathname: string): string {
     '/admin/system': 'Configuración global y parámetros del sistema',
     '/admin/users': 'Gestionar usuarios administradores del sistema',
     '/admin/reports': 'Reportes detallados y métricas de uso',
-    '/admin/logs': 'Registros de actividad y errores del sistema',
+    '/admin/settings': 'Ajustes personales y configuración del Super Admin',
   }
   
   return descriptions[pathname] || 'Panel de administración'
