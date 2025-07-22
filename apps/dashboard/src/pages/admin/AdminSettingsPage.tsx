@@ -35,28 +35,28 @@ const recentActivity = [
     id: 1,
     action: 'Configuración actualizada',
     details: 'Modificó umbral de CPU a 80%',
-    timestamp: '2025-01-22T11:30:00Z',
+    timestamp: '2025-07-21T11:30:00Z',
     type: 'config'
   },
   {
     id: 2,
     action: 'Usuario creado',
     details: 'Creó cuenta para claudia.morales@tause.pro',
-    timestamp: '2025-01-22T10:15:00Z',
+    timestamp: '2025-07-21T10:15:00Z',
     type: 'user'
   },
   {
     id: 3,
     action: 'Módulo activado',
     details: 'Habilitó facturación DIAN para todos los tenants',
-    timestamp: '2025-01-22T09:45:00Z',
+    timestamp: '2025-07-21T09:45:00Z',
     type: 'module'
   },
   {
     id: 4,
     action: 'Reporte generado',
     details: 'Exportó reporte mensual de revenue',
-    timestamp: '2025-01-22T08:30:00Z',
+    timestamp: '2025-07-21T08:30:00Z',
     type: 'report'
   },
   {

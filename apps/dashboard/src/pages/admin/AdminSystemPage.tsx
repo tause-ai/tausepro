@@ -41,7 +41,7 @@ const systemMetrics = {
 const logEntries = [
   {
     id: 1,
-    timestamp: '2025-01-22T12:45:32Z',
+    timestamp: '2025-07-21T12:45:32Z',
     level: 'INFO',
     service: 'MCP-Server',
     message: 'Agent deployed successfully for tenant buen-sabor',
@@ -49,7 +49,7 @@ const logEntries = [
   },
   {
     id: 2,
-    timestamp: '2025-01-22T12:43:15Z',
+    timestamp: '2025-07-21T12:43:15Z',
     level: 'WARN',
     service: 'Storage',
     message: 'Disk usage above 80% threshold',
@@ -57,7 +57,7 @@ const logEntries = [
   },
   {
     id: 3,
-    timestamp: '2025-01-22T12:41:07Z',
+    timestamp: '2025-07-21T12:41:07Z',
     level: 'ERROR',
     service: 'DIAN-API',
     message: 'Connection timeout to DIAN service',
@@ -65,7 +65,7 @@ const logEntries = [
   },
   {
     id: 4,
-    timestamp: '2025-01-22T12:38:22Z',
+    timestamp: '2025-07-21T12:38:22Z',
     level: 'INFO',
     service: 'WhatsApp',
     message: 'Message delivered successfully',
@@ -73,7 +73,7 @@ const logEntries = [
   },
   {
     id: 5,
-    timestamp: '2025-01-22T12:35:10Z',
+    timestamp: '2025-07-21T12:35:10Z',
     level: 'DEBUG',
     service: 'Analytics',
     message: 'Daily report generated for dashboard',

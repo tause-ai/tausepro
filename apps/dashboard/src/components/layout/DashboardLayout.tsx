@@ -7,6 +7,7 @@ const icons = {
   dashboard: '📊',
   analytics: '📈',
   agents: '🤖',
+  analysis: '🔍',
   settings: '⚙️',
   logout: '🚪',
   upgrade: '⬆️',
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: icons.dashboard },
   { name: 'Analytics', href: '/analytics', icon: icons.analytics, requiredPlan: 'starter' },
   { name: 'Agentes MCP', href: '/agents', icon: icons.agents },
+  { name: 'Análisis', href: '/analysis', icon: icons.analysis },
   { name: 'Configuración', href: '/settings', icon: icons.settings },
 ]
 

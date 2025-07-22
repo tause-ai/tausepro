@@ -47,7 +47,7 @@ const availableReports = [
     category: 'Financiero',
     format: ['PDF', 'Excel', 'CSV'],
     frequency: 'Mensual',
-    lastGenerated: '2025-01-22T08:00:00Z',
+    lastGenerated: '2025-07-21T08:00:00Z',
     icon: '💰'
   },
   {
@@ -67,7 +67,7 @@ const availableReports = [
     category: 'Técnico',
     format: ['PDF', 'JSON'],
     frequency: 'Diario',
-    lastGenerated: '2025-01-22T00:00:00Z',
+    lastGenerated: '2025-07-21T00:00:00Z',
     icon: '⚡'
   },
   {

@@ -14,7 +14,8 @@ const icons = {
   logs: '📋',
   logout: '🚪',
   user: '👤',
-  settings: '🔧'
+  settings: '🔧',
+  analytics: '📊'
 }
 
 // Navegación del Super Admin
@@ -72,6 +73,12 @@ const navigation = [
                 href: '/admin/ai-integrations',
                 icon: icons.agents,
                 description: 'API Keys y configuraciones'
+              },
+              {
+                name: 'Prompts Sistema',
+                href: '/admin/prompts',
+                icon: icons.agents,
+                description: 'Gestionar prompts de IA'
               },
 ]
 
@@ -250,9 +257,9 @@ function getPageTitle(pathname: string): string {
     '/admin/agents': 'Gestión de Agentes MCP',
     '/admin/system': 'Configuración del Sistema',
     '/admin/users': 'Usuarios Administradores',
-                    '/admin/reports': 'Reportes y Analytics',
-                '/admin/settings': 'Configuración Super Admin',
-                '/admin/ai-integrations': 'Integraciones de IA',
+    '/admin/reports': 'Reportes y Analytics',
+    '/admin/settings': 'Configuración Super Admin',
+    '/admin/ai-integrations': 'Integraciones de IA',
   }
   
   return titles[pathname] || 'TausePro Admin'
@@ -267,9 +274,9 @@ function getPageDescription(pathname: string): string {
     '/admin/agents': 'Crear y gestionar agentes de inteligencia artificial',
     '/admin/system': 'Configuración global y parámetros del sistema',
     '/admin/users': 'Gestionar usuarios administradores del sistema',
-                    '/admin/reports': 'Reportes detallados y métricas de uso',
-                '/admin/settings': 'Ajustes personales y configuración del Super Admin',
-                '/admin/ai-integrations': 'Gestiona API keys y configuraciones de IA',
+    '/admin/reports': 'Reportes detallados y métricas de uso',
+    '/admin/settings': 'Ajustes personales y configuración del Super Admin',
+    '/admin/ai-integrations': 'Gestiona API keys y configuraciones de IA',
   }
   
   return descriptions[pathname] || 'Panel de administración'

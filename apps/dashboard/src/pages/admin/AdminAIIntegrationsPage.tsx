@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,18 +11,18 @@ const demoIntegrations = [
     id: 'openai',
     name: 'OpenAI',
     description: 'GPT-4, GPT-4o, Embeddings, Whisper',
-    status: 'active',
+    status: 'inactive',
     apiKey: 'sk-...***...xyz',
-    lastUsed: '2025-01-22T12:30:00Z',
+    lastUsed: '2025-07-21T00:00:00Z',
     usage: {
-      requests: 1247,
-      tokens: 2345678,
-      cost: 89.50
+      requests: 0,
+      tokens: 0,
+      cost: 0
     },
     limits: {
       daily: 10000,
       monthly: 300000,
-      current: 1247
+      current: 0
     },
     icon: '🤖',
     category: 'AI/LLM'
@@ -33,16 +33,16 @@ const demoIntegrations = [
     description: 'Investigación web y análisis de mercado',
     status: 'active',
     apiKey: 'tvly-...***...abc',
-    lastUsed: '2025-01-22T11:45:00Z',
+    lastUsed: '2025-07-21T22:04:45Z',
     usage: {
-      requests: 89,
-      searches: 234,
-      cost: 12.30
+      requests: 0,
+      searches: 0,
+      cost: 0
     },
     limits: {
       daily: 1000,
       monthly: 30000,
-      current: 89
+      current: 0
     },
     icon: '🔍',
     category: 'Research'
@@ -73,7 +73,7 @@ const demoIntegrations = [
     description: 'Métricas de tráfico y comportamiento',
     status: 'active',
     apiKey: 'AIza...***...ghi',
-    lastUsed: '2025-01-22T10:15:00Z',
+    lastUsed: '2025-07-21T10:15:00Z',
     usage: {
       requests: 567,
       reports: 23,
@@ -93,7 +93,7 @@ const demoIntegrations = [
     description: 'WhatsApp Business API',
     status: 'active',
     apiKey: 'EAA...***...jkl',
-    lastUsed: '2025-01-22T09:30:00Z',
+    lastUsed: '2025-07-21T09:30:00Z',
     usage: {
       requests: 1234,
       messages: 5678,
@@ -136,6 +136,12 @@ const planConfigs = {
 export default function AdminAIIntegrationsPage() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null)
   const [isAddingNew, setIsAddingNew] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false)
+  const [editingService, setEditingService] = useState('')
+  const [apiKeyValue, setApiKeyValue] = useState('')
   const [newIntegration, setNewIntegration] = useState({
     name: '',
     apiKey: '',
@@ -171,19 +177,246 @@ export default function AdminAIIntegrationsPage() {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'America/Bogota'
     })
   }
 
-  const testConnection = (integrationId: string) => {
-    console.log(`Testing connection for ${integrationId}`)
-    // Aquí iría la lógica real de testing
+  const testConnection = async (integrationId: string) => {
+    try {
+      setIsLoading(true)
+      // Obtener la API key del estado local o del backend
+      const integration = demoIntegrations.find(i => i.id === integrationId)
+      if (!integration) {
+        setError('Integración no encontrada')
+        return
+      }
+
+      // Probar la conexión usando la API key actual
+      const response = await fetch('http://localhost:8081/api/v1/config/test-api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          service: integrationId, 
+          api_key: integration.apiKey || 'test-key' 
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setMessage(`✅ Conexión exitosa con ${integration.name}`)
+      } else {
+        setError(`❌ Error de conexión: ${result.error}`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error de conexión')
+    } finally {
+      setIsLoading(false)
+      setTimeout(() => {
+        setMessage('')
+        setError('')
+      }, 3000)
+    }
   }
 
   const rotateApiKey = (integrationId: string) => {
     console.log(`Rotating API key for ${integrationId}`)
     // Aquí iría la lógica real de rotación
   }
+
+  const handleSaveAPIKey = async (service: string, apiKey: string) => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('http://localhost:8081/api/v1/config/api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ service, api_key: apiKey }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setMessage(result.message)
+        // Recargar datos
+        loadIntegrations()
+      } else {
+        setError(result.error)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error de conexión')
+    } finally {
+      setIsLoading(false)
+      setTimeout(() => {
+        setMessage('')
+        setError('')
+      }, 3000)
+    }
+  }
+
+  const handleTestAPIKey = async (service: string, apiKey: string) => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('http://localhost:8081/api/v1/config/test-api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ service, api_key: apiKey }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setMessage(result.message)
+      } else {
+        setError(result.error)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error de conexión')
+    } finally {
+      setIsLoading(false)
+      setTimeout(() => {
+        setMessage('')
+        setError('')
+      }, 3000)
+    }
+  }
+
+  const loadIntegrations = async () => {
+    try {
+      const response = await fetch('http://localhost:8081/api/v1/config/api-key-status')
+      const result = await response.json()
+      
+      if (result.success) {
+        // Actualizar el estado con los datos reales
+        console.log('Datos de integraciones cargados:', result.data)
+      }
+    } catch (err) {
+      console.error('Error cargando integraciones:', err)
+    }
+  }
+
+  const openApiKeyModal = (service: string) => {
+    setEditingService(service)
+    setApiKeyValue('')
+    setShowApiKeyModal(true)
+  }
+
+  const closeApiKeyModal = () => {
+    setShowApiKeyModal(false)
+    setEditingService('')
+    setApiKeyValue('')
+  }
+
+  const saveApiKey = async () => {
+    if (!apiKeyValue.trim()) {
+      setError('La API key no puede estar vacía')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      console.log('Guardando API key para:', editingService)
+      console.log('URL:', 'http://localhost:8081/api/v1/config/api-key')
+      
+      const response = await fetch('http://localhost:8081/api/v1/config/api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          service: editingService, 
+          api_key: apiKeyValue.trim() 
+        }),
+      })
+
+      console.log('Response status:', response.status)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log('Response data:', result)
+
+      if (result.success) {
+        setMessage(`✅ API key de ${editingService} guardada exitosamente`)
+        closeApiKeyModal()
+        // Recargar datos
+        loadIntegrations()
+      } else {
+        setError(result.error)
+      }
+    } catch (err) {
+      console.error('Error completo:', err)
+      setError(err instanceof Error ? err.message : 'Error de conexión')
+    } finally {
+      setIsLoading(false)
+      setTimeout(() => {
+        setMessage('')
+        setError('')
+      }, 5000) // Aumentar tiempo para ver el error
+    }
+  }
+
+  const testApiKey = async () => {
+    if (!apiKeyValue.trim()) {
+      setError('La API key no puede estar vacía')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      console.log('Probando API key para:', editingService)
+      console.log('URL:', 'http://localhost:8081/api/v1/config/test-api-key')
+      
+      const response = await fetch('http://localhost:8081/api/v1/config/test-api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          service: editingService, 
+          api_key: apiKeyValue.trim() 
+        }),
+      })
+
+      console.log('Response status:', response.status)
+      console.log('Response headers:', response.headers)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log('Response data:', result)
+
+      if (result.success) {
+        setMessage(`✅ API key de ${editingService} es válida`)
+      } else {
+        setError(result.error)
+      }
+    } catch (err) {
+      console.error('Error completo:', err)
+      setError(err instanceof Error ? err.message : 'Error de conexión')
+    } finally {
+      setIsLoading(false)
+      setTimeout(() => {
+        setMessage('')
+        setError('')
+      }, 5000) // Aumentar tiempo para ver el error
+    }
+  }
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    loadIntegrations()
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -204,6 +437,19 @@ export default function AdminAIIntegrationsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Mensajes de estado */}
+      {message && (
+        <div className="p-4 bg-green-100 text-green-700 rounded-lg border border-green-200">
+          {message}
+        </div>
+      )}
+      
+      {error && (
+        <div className="p-4 bg-red-100 text-red-700 rounded-lg border border-red-200">
+          {error}
+        </div>
+      )}
 
       {/* Métricas Generales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -367,7 +613,7 @@ export default function AdminAIIntegrationsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setSelectedIntegration(integration.id)}
+                  onClick={() => openApiKeyModal(integration.id)}
                   className="flex-1"
                 >
                   ⚙️ Configurar
@@ -440,25 +686,25 @@ export default function AdminAIIntegrationsPage() {
           <div className="space-y-3">
             {[
               {
-                time: '2025-01-22T12:30:00Z',
+                time: '2025-07-21T12:30:00Z',
                 action: 'API Key rotada',
                 integration: 'OpenAI',
                 user: 'carlos.rodriguez@tause.pro'
               },
               {
-                time: '2025-01-22T11:45:00Z',
+                time: '2025-07-21T11:45:00Z',
                 action: 'Conexión probada',
                 integration: 'Tavily',
                 user: 'ana.gomez@tause.pro'
               },
               {
-                time: '2025-01-22T10:15:00Z',
+                time: '2025-07-21T10:15:00Z',
                 action: 'Límite alcanzado',
                 integration: 'Google Analytics',
                 user: 'system'
               },
               {
-                time: '2025-01-22T09:30:00Z',
+                time: '2025-07-21T09:30:00Z',
                 action: 'Integración agregada',
                 integration: 'Meta WhatsApp',
                 user: 'miguel.torres@tause.pro'
@@ -480,6 +726,69 @@ export default function AdminAIIntegrationsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal para configurar API Key */}
+      {showApiKeyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              🔑 Configurar API Key - {editingService.toUpperCase()}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="apiKey">API Key</Label>
+                <Input
+                  id="apiKey"
+                  type="password"
+                  placeholder={`Ingresa tu API key de ${editingService}`}
+                  value={apiKeyValue}
+                  onChange={(e) => setApiKeyValue(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+
+              {/* Mensajes de estado */}
+              {message && (
+                <div className="p-3 bg-green-100 text-green-700 rounded-md text-sm">
+                  {message}
+                </div>
+              )}
+              
+              {error && (
+                <div className="p-3 bg-red-100 text-red-700 rounded-md text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2 pt-4">
+                <Button
+                  onClick={saveApiKey}
+                  disabled={isLoading || !apiKeyValue.trim()}
+                  className="flex-1"
+                >
+                  {isLoading ? 'Guardando...' : '💾 Guardar'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={testApiKey}
+                  disabled={isLoading || !apiKeyValue.trim()}
+                  className="flex-1"
+                >
+                  {isLoading ? 'Probando...' : '🧪 Probar'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={closeApiKeyModal}
+                  disabled={isLoading}
+                >
+                  ❌ Cancelar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

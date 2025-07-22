@@ -24,6 +24,8 @@ import AdminUsersPage from '@/pages/admin/AdminUsersPage'
 import AdminReportsPage from '@/pages/admin/AdminReportsPage'
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
 import AdminAIIntegrationsPage from '@/pages/admin/AdminAIIntegrationsPage'
+import AdminPromptsPage from '@/pages/admin/AdminPromptsPage'
+import AnalysisPage from '@/pages/dashboard/AnalysisPage'
 
 // Loading component
 function LoadingPage() {
@@ -140,10 +142,11 @@ function App() {
                           <Route index element={<Navigate to="/dashboard" replace />} />
                           
                           {/* Dashboard pages */}
-                          <Route path="dashboard" element={<DashboardPage />} />
-                          <Route path="analytics" element={<AnalyticsPage />} />
-                          <Route path="agents" element={<AgentsPage />} />
-                          <Route path="settings" element={<SettingsPage />} />
+                                                  <Route path="dashboard" element={<DashboardPage />} />
+                        <Route path="analytics" element={<AnalyticsPage />} />
+                        <Route path="agents" element={<AgentsPage />} />
+                        <Route path="analysis" element={<AnalysisPage />} />
+                        <Route path="settings" element={<SettingsPage />} />
                           
                           {/* Catch all - redirect to dashboard */}
                           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -171,6 +174,7 @@ function App() {
                           <Route path="reports" element={<AdminReportsPage />} />
                           <Route path="settings" element={<AdminSettingsPage />} />
                           <Route path="ai-integrations" element={<AdminAIIntegrationsPage />} />
+                          <Route path="prompts" element={<AdminPromptsPage />} />
                           
                           {/* Catch all admin routes - redirect to admin dashboard */}
                           <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
