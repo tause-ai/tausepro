@@ -53,6 +53,32 @@ export const useAuthStore = create<AuthState>()(
             })
             return
           }
+
+          // Modo demo para Super Admin
+          if (email === 'superadmin@tause.pro' && password === 'admin123') {
+            const demoAdminUser = {
+              id: 'demo-admin-1',
+              email: 'superadmin@tause.pro',
+              name: 'Super Admin Demo',
+              role: 'super_admin' as const,
+              tenantId: 'system',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }
+            const demoAdminToken = 'demo-admin-token-' + Date.now()
+            
+            // Guardar token admin en localStorage para el store admin
+            localStorage.setItem('admin-token', demoAdminToken)
+            
+            set({ 
+              user: demoAdminUser, 
+              tenant: null, 
+              token: demoAdminToken, 
+              isAuthenticated: true, 
+              isLoading: false 
+            })
+            return
+          }
           
           // Intento de login real con PocketBase
           const { token, user, tenant } = await authApi.login(email, password)
@@ -68,20 +94,10 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshUser: async () => {
-        if (!get().token) {
-          set({ isLoading: false })
-          return
-        }
-        set({ isLoading: true })
         try {
-          // Asumiendo que refresh devuelve un nuevo usuario y tenant
-          // Esto puede necesitar ajuste según la implementación real del backend
-          // const { user, tenant } = await authApi.refresh(); 
-          // set({ user, tenant, isLoading: false });
-          console.log("Refresh logic to be implemented")
-          set({ isLoading: false }) // Temporalmente
+          set({ isLoading: false })
         } catch (error) {
-          get().logout() // Si el refresh falla, desloguear
+          console.error('Error in refreshUser:', error)
           set({ isLoading: false })
         }
       },

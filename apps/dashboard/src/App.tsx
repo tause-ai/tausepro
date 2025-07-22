@@ -4,13 +4,22 @@ import { useAuthStore } from '@/store/auth'
 
 // Layout components
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import AdminLayout from '@/components/layout/AdminLayout'
 import LoginPage from '@/pages/auth/LoginPage'
 
-// Dashboard pages
+// Dashboard pages (Clientes PYMEs)
 import DashboardPage from '@/pages/dashboard/DashboardPage'
 import AnalyticsPage from '@/pages/analytics/AnalyticsPage'
 import AgentsPage from '@/pages/agents/AgentsPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
+
+// Admin pages (Super Admin)
+import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
+import AdminLoginPage from '@/pages/admin/AdminLoginPage'
+import AdminTenantsPage from '@/pages/admin/AdminTenantsPage'
+import AdminModulesPage from '@/pages/admin/AdminModulesPage'
+import AdminAgentsPage from '@/pages/admin/AdminAgentsPage'
+import AdminSystemPage from '@/pages/admin/AdminSystemPage'
 
 // Loading component
 function LoadingPage() {
@@ -24,15 +33,40 @@ function LoadingPage() {
   )
 }
 
-// Protected route wrapper
+// Protected route wrapper for regular users
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore()
+  const { isAuthenticated, isLoading, user } = useAuthStore()
   
   if (isLoading) {
     return <LoadingPage />
   }
   
   if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  // Si es super admin, redirigir al admin dashboard
+  if (user?.role === 'super_admin') {
+    return <Navigate to="/admin/dashboard" replace />
+  }
+  
+  return <>{children}</>
+}
+
+// Protected route wrapper for admin routes (no redirect loop)
+function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading, user } = useAuthStore()
+  
+  if (isLoading) {
+    return <LoadingPage />
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/admin/login" replace />
+  }
+
+  // Verificar que sea super admin
+  if (user?.role !== 'super_admin') {
     return <Navigate to="/login" replace />
   }
   
@@ -71,37 +105,68 @@ function App() {
       <Suspense fallback={<LoadingPage />}>
         <div className="min-h-screen bg-background font-sans antialiased">
           <Routes>
-            {/* Public routes */}
-            <Route 
-              path="/login" 
-              element={
-                <PublicRoute>
-                  <LoginPage />
-                </PublicRoute>
-              } 
-            />
+                                    {/* Public routes */}
+                        <Route 
+                          path="/login" 
+                          element={
+                            <PublicRoute>
+                              <LoginPage />
+                            </PublicRoute>
+                          } 
+                        />
+                        <Route 
+                          path="/admin/login" 
+                          element={
+                            <PublicRoute>
+                              <AdminLoginPage />
+                            </PublicRoute>
+                          } 
+                        />
             
-            {/* Protected dashboard routes */}
-            <Route 
-              path="/" 
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              {/* Default redirect to dashboard */}
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              
-              {/* Dashboard pages */}
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="analytics" element={<AnalyticsPage />} />
-              <Route path="agents" element={<AgentsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              
-              {/* Catch all - redirect to dashboard */}
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Route>
+                                    {/* Protected dashboard routes (Clientes PYMEs) */}
+                        <Route 
+                          path="/" 
+                          element={
+                            <ProtectedRoute>
+                              <DashboardLayout />
+                            </ProtectedRoute>
+                          }
+                        >
+                          {/* Default redirect to dashboard */}
+                          <Route index element={<Navigate to="/dashboard" replace />} />
+                          
+                          {/* Dashboard pages */}
+                          <Route path="dashboard" element={<DashboardPage />} />
+                          <Route path="analytics" element={<AnalyticsPage />} />
+                          <Route path="agents" element={<AgentsPage />} />
+                          <Route path="settings" element={<SettingsPage />} />
+                          
+                          {/* Catch all - redirect to dashboard */}
+                          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        </Route>
+
+                        {/* Protected admin routes (Super Admin) */}
+                        <Route 
+                          path="/admin" 
+                          element={
+                            <AdminProtectedRoute>
+                              <AdminLayout />
+                            </AdminProtectedRoute>
+                          }
+                        >
+                          {/* Default redirect to admin dashboard */}
+                          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                          
+                          {/* Admin pages */}
+                          <Route path="dashboard" element={<AdminDashboardPage />} />
+                          <Route path="tenants" element={<AdminTenantsPage />} />
+                          <Route path="modules" element={<AdminModulesPage />} />
+                          <Route path="agents" element={<AdminAgentsPage />} />
+                          <Route path="system" element={<AdminSystemPage />} />
+                          
+                          {/* Catch all admin routes - redirect to admin dashboard */}
+                          <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+                        </Route>
             
             {/* Catch all public routes - redirect to login */}
             <Route path="*" element={<Navigate to="/login" replace />} />

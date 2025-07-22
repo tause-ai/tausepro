@@ -3,7 +3,7 @@ export interface User {
   id: string
   email: string
   name: string
-  role: 'owner' | 'admin' | 'employee'
+  role: 'owner' | 'admin' | 'employee' | 'super_admin'
   tenantId: string
   createdAt: string
   updatedAt: string
