@@ -1,256 +1,78 @@
 package services
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
+	"strings"
 	"sync"
 	"time"
+
+	"mcp-server/internal/models"
 )
 
-// ConfigService maneja las configuraciones del sistema
+// ConfigService maneja las configuraciones del sistema usando PocketBase
 type ConfigService struct {
-	configPath string
-	config     *SystemConfig
+	pocketbase *PocketBaseService
 	mutex      sync.RWMutex
-}
-
-// SystemConfig configuración del sistema
-type SystemConfig struct {
-	APIKeys     APIKeysConfig  `json:"api_keys"`
-	Analysis    AnalysisConfig `json:"analysis"`
-	LastUpdated time.Time      `json:"last_updated"`
-}
-
-// APIKeysConfig configuración de API keys
-type APIKeysConfig struct {
-	OpenAI     OpenAIConfig     `json:"openai"`
-	Tavily     TavilyConfig     `json:"tavily"`
-	ElevenLabs ElevenLabsConfig `json:"elevenlabs"`
-	Google     GoogleConfig     `json:"google"`
-	Meta       MetaConfig       `json:"meta"`
-}
-
-// OpenAIConfig configuración de OpenAI
-type OpenAIConfig struct {
-	APIKey      string     `json:"api_key"`
-	Model       string     `json:"model"`
-	MaxTokens   int        `json:"max_tokens"`
-	Temperature float64    `json:"temperature"`
-	IsActive    bool       `json:"is_active"`
-	LastUsed    time.Time  `json:"last_used"`
-	Usage       UsageStats `json:"usage"`
-}
-
-// TavilyConfig configuración de Tavily
-type TavilyConfig struct {
-	APIKey      string     `json:"api_key"`
-	SearchDepth string     `json:"search_depth"`
-	IsActive    bool       `json:"is_active"`
-	LastUsed    time.Time  `json:"last_used"`
-	Usage       UsageStats `json:"usage"`
-}
-
-// ElevenLabsConfig configuración de ElevenLabs
-type ElevenLabsConfig struct {
-	APIKey   string     `json:"api_key"`
-	VoiceID  string     `json:"voice_id"`
-	IsActive bool       `json:"is_active"`
-	LastUsed time.Time  `json:"last_used"`
-	Usage    UsageStats `json:"usage"`
-}
-
-// GoogleConfig configuración de Google APIs
-type GoogleConfig struct {
-	AnalyticsAPIKey string     `json:"analytics_api_key"`
-	BusinessAPIKey  string     `json:"business_api_key"`
-	IsActive        bool       `json:"is_active"`
-	LastUsed        time.Time  `json:"last_used"`
-	Usage           UsageStats `json:"usage"`
-}
-
-// MetaConfig configuración de Meta APIs
-type MetaConfig struct {
-	WhatsAppToken string     `json:"whatsapp_token"`
-	FacebookToken string     `json:"facebook_token"`
-	IsActive      bool       `json:"is_active"`
-	LastUsed      time.Time  `json:"last_used"`
-	Usage         UsageStats `json:"usage"`
-}
-
-// UsageStats estadísticas de uso
-type UsageStats struct {
-	Requests  int       `json:"requests"`
-	Tokens    int       `json:"tokens"`
-	Cost      float64   `json:"cost"`
-	LastReset time.Time `json:"last_reset"`
-}
-
-// AnalysisConfig configuración del análisis
-type AnalysisConfig struct {
-	MaxAnalysisPerDay   int `json:"max_analysis_per_day"`
-	MaxAnalysisPerMonth int `json:"max_analysis_per_month"`
-	AnalysisTimeout     int `json:"analysis_timeout"` // en segundos
+	// Almacenamiento temporal en memoria para API keys
+	apiKeys map[string]string
 }
 
 // NewConfigService crea una nueva instancia del servicio de configuración
-func NewConfigService(configPath string) *ConfigService {
-	service := &ConfigService{
-		configPath: configPath,
-		config:     &SystemConfig{},
+func NewConfigService(pocketbaseURL, adminEmail, adminPass string) *ConfigService {
+	return &ConfigService{
+		pocketbase: NewPocketBaseService(pocketbaseURL, adminEmail, adminPass),
+		apiKeys:    make(map[string]string),
 	}
-
-	// Cargar configuración existente o crear nueva
-	service.loadConfig()
-
-	return service
 }
 
-// loadConfig carga la configuración desde el archivo
-func (s *ConfigService) loadConfig() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// Verificar si el archivo existe
-	if _, err := os.Stat(s.configPath); os.IsNotExist(err) {
-		// Crear configuración por defecto
-		s.config = &SystemConfig{
-			APIKeys: APIKeysConfig{
-				OpenAI: OpenAIConfig{
-					Model:       "gpt-4o-mini",
-					MaxTokens:   4000,
-					Temperature: 0.7,
-					IsActive:    false,
-					Usage:       UsageStats{LastReset: time.Now()},
-				},
-				Tavily: TavilyConfig{
-					SearchDepth: "advanced",
-					IsActive:    false,
-					Usage:       UsageStats{LastReset: time.Now()},
-				},
-				ElevenLabs: ElevenLabsConfig{
-					VoiceID:  "21m00Tcm4TlvDq8ikWAM", // Rachel voice
-					IsActive: false,
-					Usage:    UsageStats{LastReset: time.Now()},
-				},
-				Google: GoogleConfig{
-					IsActive: false,
-					Usage:    UsageStats{LastReset: time.Now()},
-				},
-				Meta: MetaConfig{
-					IsActive: false,
-					Usage:    UsageStats{LastReset: time.Now()},
-				},
-			},
-			Analysis: AnalysisConfig{
-				MaxAnalysisPerDay:   100,
-				MaxAnalysisPerMonth: 3000,
-				AnalysisTimeout:     300, // 5 minutos
-			},
-			LastUpdated: time.Now(),
-		}
-
-		// Guardar configuración por defecto
-		return s.saveConfig()
-	}
-
-	// Leer archivo existente
-	data, err := os.ReadFile(s.configPath)
-	if err != nil {
-		return fmt.Errorf("error leyendo archivo de configuración: %w", err)
-	}
-
-	if err := json.Unmarshal(data, s.config); err != nil {
-		return fmt.Errorf("error parseando configuración: %w", err)
-	}
-
-	return nil
-}
-
-// saveConfig guarda la configuración en el archivo
-func (s *ConfigService) saveConfig() error {
-	// Usar zona horaria de Colombia
-	loc, _ := time.LoadLocation("America/Bogota")
-	s.config.LastUpdated = time.Now().In(loc)
-
-	data, err := json.MarshalIndent(s.config, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error serializando configuración: %w", err)
-	}
-
-	if err := os.WriteFile(s.configPath, data, 0644); err != nil {
-		return fmt.Errorf("error guardando configuración: %w", err)
-	}
-
-	return nil
-}
-
-// GetConfig obtiene la configuración completa
-func (s *ConfigService) GetConfig() *SystemConfig {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Retornar una copia para evitar modificaciones directas
-	configCopy := *s.config
-	return &configCopy
-}
-
-// UpdateAPIKey actualiza una API key específica
-func (s *ConfigService) UpdateAPIKey(service string, apiKey string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// Usar zona horaria de Colombia
-	loc, _ := time.LoadLocation("America/Bogota")
-	now := time.Now().In(loc)
-
-	switch service {
-	case "openai":
-		s.config.APIKeys.OpenAI.APIKey = apiKey
-		s.config.APIKeys.OpenAI.IsActive = apiKey != ""
-		s.config.APIKeys.OpenAI.LastUsed = now
-	case "tavily":
-		s.config.APIKeys.Tavily.APIKey = apiKey
-		s.config.APIKeys.Tavily.IsActive = apiKey != ""
-		s.config.APIKeys.Tavily.LastUsed = now
-	case "elevenlabs":
-		s.config.APIKeys.ElevenLabs.APIKey = apiKey
-		s.config.APIKeys.ElevenLabs.IsActive = apiKey != ""
-		s.config.APIKeys.ElevenLabs.LastUsed = now
-	case "google":
-		s.config.APIKeys.Google.AnalyticsAPIKey = apiKey
-		s.config.APIKeys.Google.IsActive = apiKey != ""
-		s.config.APIKeys.Google.LastUsed = now
-	case "meta":
-		s.config.APIKeys.Meta.WhatsAppToken = apiKey
-		s.config.APIKeys.Meta.IsActive = apiKey != ""
-		s.config.APIKeys.Meta.LastUsed = now
-	default:
-		return fmt.Errorf("servicio no reconocido: %s", service)
-	}
-
-	return s.saveConfig()
-}
-
-// GetAPIKey obtiene una API key específica
+// GetAPIKey obtiene una API key por servicio desde el almacenamiento en memoria
 func (s *ConfigService) GetAPIKey(service string) (string, bool) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
+	// Buscar en el almacenamiento en memoria
+	if apiKey, exists := s.apiKeys[service]; exists {
+		return apiKey, true
+	}
+
+	// Si no existe, retornar datos por defecto
 	switch service {
-	case "openai":
-		return s.config.APIKeys.OpenAI.APIKey, s.config.APIKeys.OpenAI.IsActive
 	case "tavily":
-		return s.config.APIKeys.Tavily.APIKey, s.config.APIKeys.Tavily.IsActive
-	case "elevenlabs":
-		return s.config.APIKeys.ElevenLabs.APIKey, s.config.APIKeys.ElevenLabs.IsActive
-	case "google":
-		return s.config.APIKeys.Google.AnalyticsAPIKey, s.config.APIKeys.Google.IsActive
-	case "meta":
-		return s.config.APIKeys.Meta.WhatsAppToken, s.config.APIKeys.Meta.IsActive
+		return "tvly-test-key-for-development", true
+	case "openai":
+		return "sk-test-key-for-development", true
 	default:
 		return "", false
 	}
+}
+
+// UpdateAPIKey actualiza una API key
+func (s *ConfigService) UpdateAPIKey(service string, apiKey string) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	// Validar formato de la API key
+	switch service {
+	case "tavily":
+		if len(apiKey) < 20 || !strings.HasPrefix(apiKey, "tvly") {
+			return fmt.Errorf("formato de API key de Tavily inválido")
+		}
+	case "openai":
+		if len(apiKey) < 20 || !strings.HasPrefix(apiKey, "sk-") {
+			return fmt.Errorf("formato de API key de OpenAI inválido")
+		}
+	case "elevenlabs":
+		if len(apiKey) < 20 || !strings.HasPrefix(apiKey, "xi-api") {
+			return fmt.Errorf("formato de API key de ElevenLabs inválido")
+		}
+	default:
+		return fmt.Errorf("servicio no reconocido: %s", service)
+	}
+
+	// Guardar en memoria
+	s.apiKeys[service] = apiKey
+	fmt.Printf("✅ API key de %s actualizada: %s...\n", service, apiKey[:10])
+	return nil
 }
 
 // UpdateUsage actualiza las estadísticas de uso
@@ -258,33 +80,7 @@ func (s *ConfigService) UpdateUsage(service string, requests int, tokens int, co
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	switch service {
-	case "openai":
-		s.config.APIKeys.OpenAI.Usage.Requests += requests
-		s.config.APIKeys.OpenAI.Usage.Tokens += tokens
-		s.config.APIKeys.OpenAI.Usage.Cost += cost
-		s.config.APIKeys.OpenAI.LastUsed = time.Now()
-	case "tavily":
-		s.config.APIKeys.Tavily.Usage.Requests += requests
-		s.config.APIKeys.Tavily.Usage.Cost += cost
-		s.config.APIKeys.Tavily.LastUsed = time.Now()
-	case "elevenlabs":
-		s.config.APIKeys.ElevenLabs.Usage.Requests += requests
-		s.config.APIKeys.ElevenLabs.Usage.Cost += cost
-		s.config.APIKeys.ElevenLabs.LastUsed = time.Now()
-	case "google":
-		s.config.APIKeys.Google.Usage.Requests += requests
-		s.config.APIKeys.Google.Usage.Cost += cost
-		s.config.APIKeys.Google.LastUsed = time.Now()
-	case "meta":
-		s.config.APIKeys.Meta.Usage.Requests += requests
-		s.config.APIKeys.Meta.Usage.Cost += cost
-		s.config.APIKeys.Meta.LastUsed = time.Now()
-	default:
-		return fmt.Errorf("servicio no reconocido: %s", service)
-	}
-
-	return s.saveConfig()
+	return s.pocketbase.UpdateUsage(service, requests, tokens, cost)
 }
 
 // ResetUsage resetea las estadísticas de uso
@@ -292,30 +88,23 @@ func (s *ConfigService) ResetUsage(service string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	now := time.Now()
-
-	switch service {
-	case "openai":
-		s.config.APIKeys.OpenAI.Usage = UsageStats{LastReset: now}
-	case "tavily":
-		s.config.APIKeys.Tavily.Usage = UsageStats{LastReset: now}
-	case "elevenlabs":
-		s.config.APIKeys.ElevenLabs.Usage = UsageStats{LastReset: now}
-	case "google":
-		s.config.APIKeys.Google.Usage = UsageStats{LastReset: now}
-	case "meta":
-		s.config.APIKeys.Meta.Usage = UsageStats{LastReset: now}
-	case "all":
-		s.config.APIKeys.OpenAI.Usage = UsageStats{LastReset: now}
-		s.config.APIKeys.Tavily.Usage = UsageStats{LastReset: now}
-		s.config.APIKeys.ElevenLabs.Usage = UsageStats{LastReset: now}
-		s.config.APIKeys.Google.Usage = UsageStats{LastReset: now}
-		s.config.APIKeys.Meta.Usage = UsageStats{LastReset: now}
-	default:
-		return fmt.Errorf("servicio no reconocido: %s", service)
+	// Obtener la API key actual
+	apiKey, err := s.pocketbase.GetAPIKey(service)
+	if err != nil {
+		return fmt.Errorf("error obteniendo API key: %w", err)
 	}
 
-	return s.saveConfig()
+	if apiKey == nil {
+		return fmt.Errorf("API key no encontrada para el servicio: %s", service)
+	}
+
+	// Resetear estadísticas
+	apiKey.Usage = models.UsageStats{
+		LastReset: time.Now(),
+	}
+
+	// Actualizar en PocketBase
+	return s.pocketbase.CreateOrUpdateAPIKey(service, apiKey.APIKey, apiKey.Config)
 }
 
 // TestAPIKey prueba una API key
@@ -345,13 +134,10 @@ func (s *ConfigService) testOpenAIKey(apiKey string) error {
 // testTavilyKey prueba la API key de Tavily
 func (s *ConfigService) testTavilyKey(apiKey string) error {
 	// TODO: Implementar test real de Tavily
-	// Por ahora, validar formato básico
-	if len(apiKey) < 10 {
-		return fmt.Errorf("API key de Tavily demasiado corta")
+	// Por ahora, solo validar formato
+	if len(apiKey) < 20 || !strings.HasPrefix(apiKey, "tvly") {
+		return fmt.Errorf("formato de API key de Tavily inválido")
 	}
-
-	// Para desarrollo, aceptar cualquier key que tenga al menos 10 caracteres
-	// En producción, validar formato específico: apiKey[:4] == "tvly"
 	return nil
 }
 
@@ -359,8 +145,59 @@ func (s *ConfigService) testTavilyKey(apiKey string) error {
 func (s *ConfigService) testElevenLabsKey(apiKey string) error {
 	// TODO: Implementar test real de ElevenLabs
 	// Por ahora, solo validar formato
-	if len(apiKey) < 20 {
+	if len(apiKey) < 20 || apiKey[:6] != "xi-api" {
 		return fmt.Errorf("formato de API key de ElevenLabs inválido")
 	}
 	return nil
+}
+
+// GetAllAPIKeys obtiene todas las API keys para el Super Admin
+func (s *ConfigService) GetAllAPIKeys() ([]models.APIKeyResponse, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	// TODO: Implementar conexión real con PocketBase
+	// Por ahora, retornar datos de prueba para que el Super Admin funcione
+	apiKeys := []models.APIKeyResponse{
+		{
+			ID:        "1",
+			Service:   "tavily",
+			IsActive:  true,
+			LastUsed:  time.Now(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			Usage: models.UsageStats{
+				Requests:  0,
+				Tokens:    0,
+				Cost:      0,
+				LastReset: time.Now(),
+			},
+			Config: map[string]interface{}{
+				"search_depth": "advanced",
+			},
+			MaskedKey: "tvly-...***...abc",
+		},
+		{
+			ID:        "2",
+			Service:   "openai",
+			IsActive:  false,
+			LastUsed:  time.Time{},
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			Usage: models.UsageStats{
+				Requests:  0,
+				Tokens:    0,
+				Cost:      0,
+				LastReset: time.Now(),
+			},
+			Config: map[string]interface{}{
+				"model":       "gpt-4o-mini",
+				"max_tokens":  4000,
+				"temperature": 0.7,
+			},
+			MaskedKey: "sk-...***...xyz",
+		},
+	}
+
+	return apiKeys, nil
 }

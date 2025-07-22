@@ -51,6 +51,19 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true, 
               isLoading: false 
             })
+            
+            // Verificar redirect parameters
+            const urlParams = new URLSearchParams(window.location.search)
+            const redirect = urlParams.get('redirect')
+            const companyUrl = urlParams.get('companyUrl')
+            
+            if (redirect === 'analysis' && companyUrl) {
+              // Redirigir a la página de análisis con la URL de la empresa
+              window.location.href = `/analysis?companyUrl=${encodeURIComponent(companyUrl)}`
+            } else {
+              // Redirigir al dashboard normal
+              window.location.href = '/dashboard'
+            }
             return
           }
 

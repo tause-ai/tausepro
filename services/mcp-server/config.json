@@ -11,19 +11,19 @@
         "requests": 0,
         "tokens": 0,
         "cost": 0,
-        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+        "last_reset": "2025-07-21T22:51:36.496667-05:00"
       }
     },
     "tavily": {
-      "api_key": "http://localhost:5176/admin/login",
+      "api_key": "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",
       "search_depth": "advanced",
       "is_active": true,
-      "last_used": "2025-07-21T22:05:43.782597-05:00",
+      "last_used": "2025-07-21T22:54:12.666485-05:00",
       "usage": {
         "requests": 0,
         "tokens": 0,
         "cost": 0,
-        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+        "last_reset": "2025-07-21T22:51:36.496667-05:00"
       }
     },
     "elevenlabs": {
@@ -35,7 +35,7 @@
         "requests": 0,
         "tokens": 0,
         "cost": 0,
-        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+        "last_reset": "2025-07-21T22:51:36.496668-05:00"
       }
     },
     "google": {
@@ -47,7 +47,7 @@
         "requests": 0,
         "tokens": 0,
         "cost": 0,
-        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+        "last_reset": "2025-07-21T22:51:36.496668-05:00"
       }
     },
     "meta": {
@@ -59,7 +59,7 @@
         "requests": 0,
         "tokens": 0,
         "cost": 0,
-        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+        "last_reset": "2025-07-21T22:51:36.496668-05:00"
       }
     }
   },
@@ -68,5 +68,5 @@
     "max_analysis_per_month": 3000,
     "analysis_timeout": 300
   },
-  "last_updated": "2025-07-21T22:05:43.782599-05:00"
+  "last_updated": "2025-07-21T22:54:12.666512-05:00"
 }

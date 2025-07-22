@@ -34,18 +34,24 @@ type APIKeyResponse struct {
 
 // ConfigResponse respuesta de configuración
 type ConfigResponse struct {
-	Success bool                   `json:"success"`
-	Data    *services.SystemConfig `json:"data,omitempty"`
-	Error   string                 `json:"error,omitempty"`
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
 }
 
-// GetConfig obtiene la configuración completa del sistema
+// GetConfig obtiene todas las API keys del sistema
 func (h *ConfigHandler) GetConfig(c *fiber.Ctx) error {
-	config := h.configService.GetConfig()
+	apiKeys, err := h.configService.GetAllAPIKeys()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ConfigResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Error obteniendo configuración: %v", err),
+		})
+	}
 
 	return c.JSON(ConfigResponse{
 		Success: true,
-		Data:    config,
+		Data:    apiKeys,
 	})
 }
 
@@ -151,34 +157,23 @@ func (h *ConfigHandler) ResetUsage(c *fiber.Ctx) error {
 
 // GetAPIKeyStatus obtiene el estado de las API keys
 func (h *ConfigHandler) GetAPIKeyStatus(c *fiber.Ctx) error {
-	config := h.configService.GetConfig()
+	apiKeys, err := h.configService.GetAllAPIKeys()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   fmt.Sprintf("Error obteniendo estado de API keys: %v", err),
+		})
+	}
 
-	status := map[string]interface{}{
-		"openai": map[string]interface{}{
-			"is_active": config.APIKeys.OpenAI.IsActive,
-			"last_used": config.APIKeys.OpenAI.LastUsed,
-			"usage":     config.APIKeys.OpenAI.Usage,
-		},
-		"tavily": map[string]interface{}{
-			"is_active": config.APIKeys.Tavily.IsActive,
-			"last_used": config.APIKeys.Tavily.LastUsed,
-			"usage":     config.APIKeys.Tavily.Usage,
-		},
-		"elevenlabs": map[string]interface{}{
-			"is_active": config.APIKeys.ElevenLabs.IsActive,
-			"last_used": config.APIKeys.ElevenLabs.LastUsed,
-			"usage":     config.APIKeys.ElevenLabs.Usage,
-		},
-		"google": map[string]interface{}{
-			"is_active": config.APIKeys.Google.IsActive,
-			"last_used": config.APIKeys.Google.LastUsed,
-			"usage":     config.APIKeys.Google.Usage,
-		},
-		"meta": map[string]interface{}{
-			"is_active": config.APIKeys.Meta.IsActive,
-			"last_used": config.APIKeys.Meta.LastUsed,
-			"usage":     config.APIKeys.Meta.Usage,
-		},
+	// Convertir a formato de estado
+	status := make(map[string]interface{})
+	for _, key := range apiKeys {
+		status[key.Service] = map[string]interface{}{
+			"is_active":  key.IsActive,
+			"last_used":  key.LastUsed,
+			"usage":      key.Usage,
+			"masked_key": key.MaskedKey,
+		}
 	}
 
 	return c.JSON(fiber.Map{

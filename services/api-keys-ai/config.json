@@ -1,0 +1,72 @@
+{
+  "api_keys": {
+    "openai": {
+      "api_key": "",
+      "model": "gpt-4o-mini",
+      "max_tokens": 4000,
+      "temperature": 0.7,
+      "is_active": false,
+      "last_used": "0001-01-01T00:00:00Z",
+      "usage": {
+        "requests": 0,
+        "tokens": 0,
+        "cost": 0,
+        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+      }
+    },
+    "tavily": {
+      "api_key": "tvly-test-real-key-123",
+      "search_depth": "advanced",
+      "is_active": true,
+      "last_used": "2025-07-21T22:44:02.779753-05:00",
+      "usage": {
+        "requests": 0,
+        "tokens": 0,
+        "cost": 0,
+        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+      }
+    },
+    "elevenlabs": {
+      "api_key": "",
+      "voice_id": "21m00Tcm4TlvDq8ikWAM",
+      "is_active": false,
+      "last_used": "0001-01-01T00:00:00Z",
+      "usage": {
+        "requests": 0,
+        "tokens": 0,
+        "cost": 0,
+        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+      }
+    },
+    "google": {
+      "analytics_api_key": "",
+      "business_api_key": "",
+      "is_active": false,
+      "last_used": "0001-01-01T00:00:00Z",
+      "usage": {
+        "requests": 0,
+        "tokens": 0,
+        "cost": 0,
+        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+      }
+    },
+    "meta": {
+      "whatsapp_token": "",
+      "facebook_token": "",
+      "is_active": false,
+      "last_used": "0001-01-01T00:00:00Z",
+      "usage": {
+        "requests": 0,
+        "tokens": 0,
+        "cost": 0,
+        "last_reset": "2025-07-21T21:54:58.389386-05:00"
+      }
+    }
+  },
+  "analysis": {
+    "max_analysis_per_day": 100,
+    "max_analysis_per_month": 3000,
+    "analysis_timeout": 300
+  },
+  "last_updated": "2025-07-21T22:44:02.779778-05:00"
+}

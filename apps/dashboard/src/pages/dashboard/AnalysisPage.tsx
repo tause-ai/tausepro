@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -92,12 +92,23 @@ interface AnalysisResponse {
 }
 
 export default function AnalysisPage() {
-  const [url, setUrl] = useState('')
+  const [url, setUrl] = useState(() => {
+    // Obtener URL de los parámetros de la URL si existe
+    const urlParams = new URLSearchParams(window.location.search)
+    return urlParams.get('companyUrl') || ''
+  })
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<MarketAnalysis | null>(null)
   const [preview, setPreview] = useState<PaywallPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
+
+  // Auto-analizar si viene con URL desde la landing
+  useEffect(() => {
+    if (url && !analysis && !isAnalyzing) {
+      handleAnalyze()
+    }
+  }, [url])
 
   const handleAnalyze = async () => {
     if (!url) {

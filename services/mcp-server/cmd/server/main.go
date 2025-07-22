@@ -17,12 +17,14 @@ func main() {
 	// Middleware
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173,http://localhost:3000,http://localhost:5176",
+		AllowOrigins:     "http://localhost:5173,http://localhost:3000,http://localhost:3001,http://localhost:5174,http://localhost:5176",
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
 		AllowCredentials: true,
 	}))
 
 	// Inicializar servicios
-	configService := services.NewConfigService("./config.json")
+	configService := services.NewConfigService("http://localhost:8090", "admin@tause.pro", "admin123")
 	analysisService := services.NewAnalysisService(configService)
 
 	// Inicializar handlers
@@ -149,5 +151,9 @@ func main() {
 	}
 
 	log.Printf("⚡️ TausePro MCP Server running on :%s", port)
-	log.Fatal(app.Listen(":" + port))
+	log.Printf("🔧 Configuración completada, iniciando servidor...")
+
+	if err := app.Listen(":" + port); err != nil {
+		log.Fatalf("❌ Error iniciando servidor: %v", err)
+	}
 }

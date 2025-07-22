@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"mcp-server/internal/services"
@@ -58,6 +59,14 @@ func (h *AnalysisHandler) AnalyzeCompany(c *fiber.Ctx) error {
 	ctx := c.Context()
 	analysis, err := h.analysisService.AnalyzeCompany(ctx, req.URL)
 	if err != nil {
+		// Manejar errores específicos de configuración
+		if strings.Contains(err.Error(), "API key de Tavily no válida") {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(AnalysisResponse{
+				Success: false,
+				Error:   "Servicio de análisis no disponible. Configure las API keys en el Super Admin.",
+			})
+		}
+
 		return c.Status(fiber.StatusInternalServerError).JSON(AnalysisResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Error en análisis: %v", err),

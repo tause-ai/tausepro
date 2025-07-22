@@ -185,31 +185,40 @@ export default function AdminAIIntegrationsPage() {
   const testConnection = async (integrationId: string) => {
     try {
       setIsLoading(true)
-      // Obtener la API key del estado local o del backend
-      const integration = demoIntegrations.find(i => i.id === integrationId)
-      if (!integration) {
-        setError('Integración no encontrada')
+      
+      // Obtener la API key real del backend
+      const response = await fetch('http://localhost:8081/api/v1/config/')
+      const result = await response.json()
+      
+      if (!result.success) {
+        setError('Error obteniendo configuración')
+        return
+      }
+      
+      const apiKeyData = result.data.find((key: any) => key.service === integrationId)
+      if (!apiKeyData || !apiKeyData.masked_key || apiKeyData.masked_key.includes('***')) {
+        setError('API key no configurada. Configura una API key válida primero.')
         return
       }
 
-      // Probar la conexión usando la API key actual
-      const response = await fetch('http://localhost:8081/api/v1/config/test-api-key', {
+      // Probar la conexión usando la API key real
+      const testResponse = await fetch('http://localhost:8081/api/v1/config/test-api-key', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
           service: integrationId, 
-          api_key: integration.apiKey || 'test-key' 
+          api_key: apiKeyData.masked_key
         }),
       })
 
-      const result = await response.json()
+      const testResult = await testResponse.json()
 
-      if (result.success) {
-        setMessage(`✅ Conexión exitosa con ${integration.name}`)
+      if (testResult.success) {
+        setMessage(`✅ Conexión exitosa con ${integrationId}`)
       } else {
-        setError(`❌ Error de conexión: ${result.error}`)
+        setError(`❌ Error de conexión: ${testResult.error}`)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error de conexión')
