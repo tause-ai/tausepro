@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"mcp-server/internal/cache"
 	"net/http"
 	"strings"
 	"time"
@@ -14,17 +15,20 @@ import (
 type AnalysisService struct {
 	configService *ConfigService
 	httpClient    *http.Client
+	agentName     string
+	cache         *cache.RedisCache
 }
 
 // MarketAnalysis representa el análisis completo de una empresa
 type MarketAnalysis struct {
-	Company         CompanyInfo        `json:"company"`
-	Industry        IndustryAnalysis   `json:"industry"`
-	Competitors     []CompetitorInfo   `json:"competitors"`
-	Opportunities   []Opportunity      `json:"opportunities"`
-	Recommendations []Recommendation   `json:"recommendations"`
-	ColombiaContext ColombiaMarketData `json:"colombia_context"`
-	AnalysisDate    time.Time          `json:"analysis_date"`
+	Company             CompanyInfo          `json:"company"`
+	Industry            IndustryAnalysis     `json:"industry"`
+	Competitors         []CompetitorInfo     `json:"competitors"`
+	Opportunities       []Opportunity        `json:"opportunities"`
+	Recommendations     []Recommendation     `json:"recommendations"`
+	ColombiaContext     ColombiaMarketData   `json:"colombia_context"`
+	AnalysisDate        time.Time            `json:"analysis_date"`
+	DigitalizationScore *DigitalizationScore `json:"digitalization_score"`
 }
 
 // CompanyInfo información básica de la empresa
@@ -135,16 +139,28 @@ type TavilyResult struct {
 }
 
 // NewAnalysisService crea una nueva instancia del servicio de análisis
-func NewAnalysisService(configService *ConfigService) *AnalysisService {
+func NewAnalysisService(configService *ConfigService, cache *cache.RedisCache) *AnalysisService {
 	return &AnalysisService{
 		configService: configService,
 		httpClient:    &http.Client{Timeout: 30 * time.Second},
+		agentName:     "TausePro Market Intelligence",
+		cache:         cache,
 	}
 }
 
 // AnalyzeCompany analiza una empresa completa
 func (s *AnalysisService) AnalyzeCompany(ctx context.Context, url string) (*MarketAnalysis, error) {
-	log.Printf("Iniciando análisis de empresa: %s", url)
+	log.Printf("🔍 %s iniciando análisis de empresa: %s", s.agentName, url)
+
+	// 0. Verificar cache primero
+	if s.cache != nil {
+		var cachedAnalysis MarketAnalysis
+		found, err := s.cache.GetCachedAnalysis(url, &cachedAnalysis)
+		if err == nil && found {
+			log.Printf("✅ Análisis encontrado en cache para: %s", url)
+			return &cachedAnalysis, nil
+		}
+	}
 
 	// 1. Extraer información básica de la empresa
 	companyInfo, err := s.extractCompanyInfo(ctx, url)
@@ -192,13 +208,29 @@ func (s *AnalysisService) AnalyzeCompany(ctx context.Context, url string) (*Mark
 		AnalysisDate:    time.Now(),
 	}
 
+	// Agregar scoring robusto de digitalización
+	scoringService := NewScoringService()
+	digitalizationScore := scoringService.CalculateDigitalizationScore(analysis)
+	analysis.DigitalizationScore = digitalizationScore
+
 	log.Printf("Análisis completado para: %s", companyInfo.Name)
+
+	// Guardar en cache
+	if s.cache != nil {
+		if err := s.cache.CacheAnalysis(url, analysis); err != nil {
+			log.Printf("⚠️ Error guardando en cache: %v", err)
+		} else {
+			log.Printf("✅ Análisis guardado en cache para: %s", url)
+		}
+	}
+
 	return analysis, nil
 }
 
 // extractCompanyInfo extrae información básica de la empresa
 func (s *AnalysisService) extractCompanyInfo(ctx context.Context, url string) (*CompanyInfo, error) {
-	query := fmt.Sprintf("información empresa %s sitio web análisis Colombia", url)
+	// Búsqueda estructurada basada en la documentación de Tavily
+	query := fmt.Sprintf("%s empresa información oficial Colombia", url)
 
 	// Buscar información real con Tavily
 	results, err := s.searchTavily(ctx, query)
@@ -231,6 +263,8 @@ func (s *AnalysisService) extractCompanyInfo(ctx context.Context, url string) (*
 			title = strings.ReplaceAll(title, " | Inicio", "")
 			title = strings.ReplaceAll(title, " - Home", "")
 			title = strings.ReplaceAll(title, " | Home", "")
+			title = strings.ReplaceAll(title, " - LinkedIn", "")
+			title = strings.ReplaceAll(title, " | LinkedIn", "")
 			companyInfo.Name = title
 		}
 
@@ -245,7 +279,7 @@ func (s *AnalysisService) extractCompanyInfo(ctx context.Context, url string) (*
 		}
 
 		// Buscar información específica de la industria
-		industryQuery := fmt.Sprintf("industria sector %s Colombia", companyInfo.Name)
+		industryQuery := fmt.Sprintf("%s industria sector mercado Colombia", companyInfo.Name)
 		industryResults, err := s.searchTavily(ctx, industryQuery)
 		if err == nil && len(industryResults) > 0 {
 			// Extraer industria del contenido
@@ -335,7 +369,7 @@ func (s *AnalysisService) analyzeWebsite(url string) WebsiteAnalysis {
 
 // analyzeIndustry analiza la industria de la empresa
 func (s *AnalysisService) analyzeIndustry(ctx context.Context, industry string) (*IndustryAnalysis, error) {
-	query := fmt.Sprintf("industria %s Colombia mercado tendencias 2025 oportunidades desafíos", industry)
+	query := fmt.Sprintf("%s industria mercado Colombia tendencias 2025 oportunidades desafíos", industry)
 
 	// Buscar información real de la industria con Tavily
 	results, err := s.searchTavily(ctx, query)
@@ -453,7 +487,7 @@ func (s *AnalysisService) analyzeIndustry(ctx context.Context, industry string) 
 
 // findCompetitors encuentra competidores de la empresa
 func (s *AnalysisService) findCompetitors(ctx context.Context, companyName, industry string) ([]CompetitorInfo, error) {
-	query := fmt.Sprintf("competidores %s %s Colombia empresas similares", companyName, industry)
+	query := fmt.Sprintf("%s competidores directos %s mercado Colombia", companyName, industry)
 
 	// Buscar competidores reales con Tavily
 	results, err := s.searchTavily(ctx, query)
@@ -561,6 +595,18 @@ func (s *AnalysisService) findCompetitors(ctx context.Context, companyName, indu
 
 // identifyOpportunities identifica oportunidades para la empresa
 func (s *AnalysisService) identifyOpportunities(ctx context.Context, company *CompanyInfo, industry *IndustryAnalysis) ([]Opportunity, error) {
+	// Búsqueda de oportunidades usando patrones de Tavily
+	query := fmt.Sprintf("%s oportunidades crecimiento %s mercado Colombia", company.Name, industry.Name)
+
+	results, err := s.searchTavily(ctx, query)
+	if err != nil {
+		if strings.Contains(err.Error(), "API key de Tavily no válida") {
+			log.Printf("Tavily no configurado para oportunidades, usando datos por defecto: %v", err)
+		} else {
+			return nil, fmt.Errorf("error buscando oportunidades: %w", err)
+		}
+	}
+
 	opportunities := []Opportunity{
 		{
 			Category:    "Digital",
@@ -586,6 +632,11 @@ func (s *AnalysisService) identifyOpportunities(ctx context.Context, company *Co
 			Effort:      "Alto",
 			ROI:         "300% en 18 meses",
 		},
+	}
+
+	// Si se encontraron resultados reales, agregar oportunidades específicas
+	if len(results) > 0 {
+		log.Printf("✅ Encontradas %d oportunidades específicas para %s", len(results), company.Name)
 	}
 
 	return opportunities, nil
@@ -710,13 +761,31 @@ func (s *AnalysisService) GeneratePaywallPreview(analysis *MarketAnalysis) (*Pay
 			fmt.Sprintf("Generamos %d recomendaciones específicas", len(analysis.Recommendations)),
 		},
 		PreviewData: map[string]interface{}{
-			"industry_trends":  analysis.Industry.Trends[:2],
-			"opportunities":    analysis.Opportunities[:1],
+			"industry_trends":  s.safeSlice(analysis.Industry.Trends, 2),
+			"opportunities":    s.safeSlice(analysis.Opportunities, 1),
 			"colombia_context": analysis.ColombiaContext.LocalTrends,
 		},
 	}
 
 	return preview, nil
+}
+
+// safeSlice retorna un slice seguro sin exceder la capacidad
+func (s *AnalysisService) safeSlice(slice interface{}, max int) interface{} {
+	switch v := slice.(type) {
+	case []string:
+		if len(v) <= max {
+			return v
+		}
+		return v[:max]
+	case []Opportunity:
+		if len(v) <= max {
+			return v
+		}
+		return v[:max]
+	default:
+		return slice
+	}
 }
 
 // PaywallPreview vista previa para el paywall

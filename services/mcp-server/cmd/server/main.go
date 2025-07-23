@@ -2,8 +2,10 @@ package main
 
 import (
 	"log"
+	"mcp-server/internal/cache"
 	"mcp-server/internal/handlers"
 	"mcp-server/internal/services"
+	"mcp-server/internal/tenant"
 	"os"
 
 	"github.com/gofiber/fiber/v2"
@@ -23,13 +25,39 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+	// Inicializar Redis cache
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379"
+	}
+
+	redisCache, err := cache.NewRedisCache(redisURL)
+	if err != nil {
+		log.Printf("⚠️ Redis no disponible, continuando sin cache: %v", err)
+		redisCache = nil
+	} else {
+		log.Printf("✅ Redis conectado: %s", redisURL)
+	}
+
 	// Inicializar servicios
 	configService := services.NewConfigService("http://localhost:8090", "admin@tause.pro", "admin123")
-	analysisService := services.NewAnalysisService(configService)
+	analysisService := services.NewAnalysisService(configService, redisCache)
+
+	// Inicializar tenant manager (simulado sin DB por ahora)
+	var tenantManager *tenant.TenantManager
+	if redisCache != nil {
+		// TODO: Conectar a DB real
+		// tenantManager = tenant.NewTenantManager(db, redisCache)
+		log.Printf("⚠️ Tenant manager no inicializado - requiere DB")
+	}
 
 	// Inicializar handlers
 	configHandler := handlers.NewConfigHandler(configService)
 	analysisHandler := handlers.NewAnalysisHandler(analysisService)
+	var tenantHandler *handlers.TenantHandler
+	if tenantManager != nil {
+		tenantHandler = handlers.NewTenantHandler(tenantManager)
+	}
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -57,6 +85,16 @@ func main() {
 	analysis.Get("/full", analysisHandler.GetFullAnalysis)
 	analysis.Post("/report", analysisHandler.GenerateReport)
 	analysis.Get("/health", analysisHandler.HealthCheck)
+
+	// Rutas de tenant (si está disponible)
+	if tenantHandler != nil {
+		tenantRoutes := api.Group("/tenant")
+		tenantRoutes.Post("/create", tenantHandler.CreateTenant)
+		tenantRoutes.Get("/info", tenantHandler.GetTenant)
+		tenantRoutes.Put("/update", tenantHandler.UpdateTenant)
+		tenantRoutes.Get("/features", tenantHandler.GetTenantFeatures)
+		tenantRoutes.Get("/check-limit", tenantHandler.CheckTenantLimit)
+	}
 
 	// Auth con PocketBase
 	api.Post("/auth/login", func(c *fiber.Ctx) error {
@@ -98,18 +136,17 @@ func main() {
 					"email":        payload.Email,
 					"name":         "Demo User",
 					"role":         "user",
-					"company_name": "Mi PYME",
-					"plan":         "gratis",
-					"created":      "2025-01-15T00:00:00Z",
-					"updated":      "2025-01-15T00:00:00Z",
+					"company_name": "Demo Company",
+					"plan":         "starter",
+					"created":      "2025-01-01T00:00:00Z",
+					"updated":      "2025-01-01T00:00:00Z",
 				},
 			})
 		}
 
-		// Credenciales inválidas
+		// Autenticación fallida
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Credenciales inválidas",
-			"message": "El email o la contraseña son incorrectos",
+			"error": "Invalid credentials",
 		})
 	})
 
@@ -145,6 +182,7 @@ func main() {
 		})
 	})
 
+	// Iniciar servidor
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8081"
@@ -152,8 +190,5 @@ func main() {
 
 	log.Printf("⚡️ TausePro MCP Server running on :%s", port)
 	log.Printf("🔧 Configuración completada, iniciando servidor...")
-
-	if err := app.Listen(":" + port); err != nil {
-		log.Fatalf("❌ Error iniciando servidor: %v", err)
-	}
+	app.Listen(":" + port)
 }

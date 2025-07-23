@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge'
 // Datos demo del dashboard principal
 const dashboardData = {
   metrics: {
-    totalTenants: 127,
-    activeTenants: 124,
+      totalTenants: 127,
+      activeTenants: 124,
     totalRevenue: 45678900, // COP
     monthlyGrowth: 12.5,
     apiCalls: 1245678,
@@ -50,7 +50,7 @@ const dashboardData = {
       time: '1 hora ago',
       icon: '⚡'
     }
-  ],
+      ],
   systemStatus: [
     { service: 'MCP Server', status: 'online', uptime: '99.9%' },
     { service: 'PostgreSQL', status: 'online', uptime: '99.8%' },
@@ -149,11 +149,11 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Distribución Geográfica */}
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
             <CardTitle>🌎 Distribución por Ciudades</CardTitle>
-          </CardHeader>
-          <CardContent>
+        </CardHeader>
+        <CardContent>
             <div className="space-y-4">
               {dashboardData.geography.map((location, index) => (
                 <div key={index} className="flex items-center justify-between">
@@ -167,16 +167,16 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
         {/* Distribución por Planes */}
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
             <CardTitle>📊 Distribución por Planes</CardTitle>
-          </CardHeader>
-          <CardContent>
+        </CardHeader>
+        <CardContent>
             <div className="space-y-4">
               {dashboardData.plans.map((plan, index) => (
                 <div key={index} className="space-y-2">
@@ -196,8 +196,8 @@ export default function AdminDashboardPage() {
                       style={{ width: `${plan.percentage}%` }}
                     ></div>
                   </div>
-                </div>
-              ))}
+                  </div>
+                ))}
             </div>
           </CardContent>
         </Card>
@@ -218,21 +218,21 @@ export default function AdminDashboardPage() {
                     <div className="font-medium text-sm">{activity.message}</div>
                     <div className="text-xs text-muted-foreground">{activity.time}</div>
                   </div>
-                </div>
-              ))}
+                  </div>
+                ))}
             </div>
             <Button variant="outline" className="w-full mt-4">
               Ver Todas las Actividades
             </Button>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
 
         {/* Estado del Sistema */}
-        <Card>
-          <CardHeader>
+      <Card>
+        <CardHeader>
             <CardTitle>⚡ Estado de Servicios</CardTitle>
-          </CardHeader>
-          <CardContent>
+        </CardHeader>
+        <CardContent>
             <div className="space-y-4">
               {dashboardData.systemStatus.map((service, index) => (
                 <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
@@ -247,12 +247,12 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               ))}
-            </div>
+          </div>
             <Button variant="outline" className="w-full mt-4">
               🔧 Ver Sistema Completo
             </Button>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
       </div>
 
       {/* Enlaces Rápidos */}

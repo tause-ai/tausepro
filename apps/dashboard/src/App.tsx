@@ -142,11 +142,11 @@ function App() {
                           <Route index element={<Navigate to="/dashboard" replace />} />
                           
                           {/* Dashboard pages */}
-                                                  <Route path="dashboard" element={<DashboardPage />} />
-                        <Route path="analytics" element={<AnalyticsPage />} />
-                        <Route path="agents" element={<AgentsPage />} />
+                          <Route path="dashboard" element={<DashboardPage />} />
+                          <Route path="analytics" element={<AnalyticsPage />} />
+                          <Route path="agents" element={<AgentsPage />} />
                         <Route path="analysis" element={<AnalysisPage />} />
-                        <Route path="settings" element={<SettingsPage />} />
+                          <Route path="settings" element={<SettingsPage />} />
                           
                           {/* Catch all - redirect to dashboard */}
                           <Route path="*" element={<Navigate to="/dashboard" replace />} />

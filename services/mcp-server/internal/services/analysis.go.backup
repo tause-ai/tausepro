@@ -1,0 +1,1018 @@
+package services
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// AnalysisService maneja el análisis automático de empresas
+type AnalysisService struct {
+	configService *ConfigService
+	httpClient    *http.Client
+	agentName     string
+}
+
+// MarketAnalysis representa el análisis completo de una empresa
+type MarketAnalysis struct {
+	Company         CompanyInfo        `json:"company"`
+	Industry        IndustryAnalysis   `json:"industry"`
+	Competitors     []CompetitorInfo   `json:"competitors"`
+	Opportunities   []Opportunity      `json:"opportunities"`
+	Recommendations []Recommendation   `json:"recommendations"`
+	ColombiaContext ColombiaMarketData `json:"colombia_context"`
+	AnalysisDate    time.Time          `json:"analysis_date"`
+}
+
+// CompanyInfo información básica de la empresa
+type CompanyInfo struct {
+	Name        string            `json:"name"`
+	URL         string            `json:"url"`
+	Description string            `json:"description"`
+	Industry    string            `json:"industry"`
+	Location    string            `json:"location"`
+	Size        string            `json:"size"`
+	Founded     string            `json:"founded"`
+	SocialMedia map[string]string `json:"social_media"`
+	Website     WebsiteAnalysis   `json:"website"`
+}
+
+// WebsiteAnalysis análisis del sitio web
+type WebsiteAnalysis struct {
+	Technologies []string    `json:"technologies"`
+	Performance  string      `json:"performance"`
+	SEO          SEOAnalysis `json:"seo"`
+	Ecommerce    bool        `json:"ecommerce"`
+	Blog         bool        `json:"blog"`
+	ContactInfo  bool        `json:"contact_info"`
+}
+
+// SEOAnalysis análisis SEO básico
+type SEOAnalysis struct {
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Keywords    []string `json:"keywords"`
+	Score       int      `json:"score"`
+}
+
+// IndustryAnalysis análisis de la industria
+type IndustryAnalysis struct {
+	Name          string   `json:"name"`
+	Size          string   `json:"size"`
+	Growth        string   `json:"growth"`
+	Trends        []string `json:"trends"`
+	Challenges    []string `json:"challenges"`
+	Opportunities []string `json:"opportunities"`
+}
+
+// CompetitorInfo información de competidores
+type CompetitorInfo struct {
+	Name        string   `json:"name"`
+	URL         string   `json:"url"`
+	Strengths   []string `json:"strengths"`
+	Weaknesses  []string `json:"weaknesses"`
+	MarketShare string   `json:"market_share"`
+}
+
+// Opportunity oportunidades identificadas
+type Opportunity struct {
+	Category    string `json:"category"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Impact      string `json:"impact"`
+	Effort      string `json:"effort"`
+	ROI         string `json:"roi"`
+}
+
+// Recommendation recomendaciones específicas
+type Recommendation struct {
+	Priority    string   `json:"priority"`
+	Category    string   `json:"category"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Actions     []string `json:"actions"`
+	Timeline    string   `json:"timeline"`
+	Cost        string   `json:"cost"`
+}
+
+// ColombiaMarketData contexto específico de Colombia
+type ColombiaMarketData struct {
+	EconomicContext string   `json:"economic_context"`
+	DigitalAdoption string   `json:"digital_adoption"`
+	PaymentMethods  []string `json:"payment_methods"`
+	ShippingOptions []string `json:"shipping_options"`
+	Regulations     []string `json:"regulations"`
+	LocalTrends     []string `json:"local_trends"`
+}
+
+// TavilySearchRequest request para Tavily
+type TavilySearchRequest struct {
+	APIKey            string `json:"api_key"`
+	Query             string `json:"query"`
+	SearchDepth       string `json:"search_depth"`
+	IncludeAnswer     bool   `json:"include_answer"`
+	IncludeRawContent bool   `json:"include_raw_content"`
+	IncludeImages     bool   `json:"include_images"`
+}
+
+// TavilySearchResponse respuesta de Tavily
+type TavilySearchResponse struct {
+	Query   string         `json:"query"`
+	Results []TavilyResult `json:"results"`
+	Answer  string         `json:"answer"`
+	Images  []string       `json:"images"`
+}
+
+// TavilyResult resultado individual de Tavily
+type TavilyResult struct {
+	Title   string  `json:"title"`
+	URL     string  `json:"url"`
+	Content string  `json:"content"`
+	Score   float64 `json:"score"`
+}
+
+// NewAnalysisService crea una nueva instancia del servicio de análisis
+func NewAnalysisService(configService *ConfigService) *AnalysisService {
+	return &AnalysisService{
+		configService: configService,
+		httpClient:    &http.Client{Timeout: 30 * time.Second},
+		agentName:     "TausePro Market Intelligence",
+	}
+}
+
+// AnalyzeCompany analiza una empresa completa
+func (s *AnalysisService) AnalyzeCompany(ctx context.Context, url string) (*MarketAnalysis, error) {
+	log.Printf("Iniciando análisis de empresa: %s", url)
+
+	// 1. Extraer información básica de la empresa
+	companyInfo, err := s.extractCompanyInfo(ctx, url)
+	if err != nil {
+		return nil, fmt.Errorf("error extrayendo información de empresa: %w", err)
+	}
+
+	// 2. Investigar la industria
+	industryAnalysis, err := s.analyzeIndustry(ctx, companyInfo.Industry)
+	if err != nil {
+		return nil, fmt.Errorf("error analizando industria: %w", err)
+	}
+
+	// 3. Identificar competidores
+	competitors, err := s.findCompetitors(ctx, companyInfo.Name, companyInfo.Industry)
+	if err != nil {
+		return nil, fmt.Errorf("error encontrando competidores: %w", err)
+	}
+
+	// 4. Identificar oportunidades
+	opportunities, err := s.identifyOpportunities(ctx, companyInfo, industryAnalysis)
+	if err != nil {
+		return nil, fmt.Errorf("error identificando oportunidades: %w", err)
+	}
+
+	// 5. Generar recomendaciones
+	recommendations, err := s.generateRecommendations(ctx, companyInfo, industryAnalysis, competitors)
+	if err != nil {
+		return nil, fmt.Errorf("error generando recomendaciones: %w", err)
+	}
+
+	// 6. Contexto colombiano
+	colombiaContext, err := s.getColombiaContext(ctx, companyInfo.Industry)
+	if err != nil {
+		return nil, fmt.Errorf("error obteniendo contexto colombiano: %w", err)
+	}
+
+	analysis := &MarketAnalysis{
+		Company:         *companyInfo,
+		Industry:        *industryAnalysis,
+		Competitors:     competitors,
+		Opportunities:   opportunities,
+		Recommendations: recommendations,
+		ColombiaContext: *colombiaContext,
+		AnalysisDate:    time.Now(),
+	}
+
+	log.Printf("Análisis completado para: %s", companyInfo.Name)
+	return analysis, nil
+}
+
+// extractCompanyInfo extrae información básica de la empresa
+func (s *AnalysisService) extractCompanyInfo(ctx context.Context, url string) (*CompanyInfo, error) {
+	log.Printf("🔍 %s iniciando análisis profundo de empresa: %s", s.agentName, url)
+
+	// 1. PRIMERO: Extraer información directamente del sitio web
+	websiteInfo, err := s.extractWebsiteInfo(url)
+	if err != nil {
+		log.Printf("⚠️ Error extrayendo información del sitio web: %v", err)
+	}
+
+	// 2. SEGUNDO: Validar y complementar con búsquedas específicas
+	companyInfo := &CompanyInfo{
+		URL:         url,
+		SocialMedia: make(map[string]string),
+		Location:    "Colombia",
+	}
+
+	// Usar información del sitio web si está disponible
+	if websiteInfo != nil {
+		companyInfo.Name = websiteInfo.Name
+		companyInfo.Description = websiteInfo.Description
+		companyInfo.Industry = websiteInfo.Industry
+		companyInfo.SocialMedia = websiteInfo.SocialMedia
+	}
+
+	// 3. TERCERO: Búsqueda específica para validar y complementar
+	if companyInfo.Name != "" {
+		query := fmt.Sprintf("%s empresa información oficial Colombia", companyInfo.Name)
+		results, err := s.searchTavily(ctx, query)
+		if err != nil {
+			if strings.Contains(err.Error(), "API key de Tavily no válida") {
+				log.Printf("Tavily no configurado, usando datos por defecto: %v", err)
+			} else {
+				return nil, fmt.Errorf("error extrayendo información de empresa: %w", err)
+			}
+		}
+
+	companyInfo := &CompanyInfo{
+		URL:         url,
+		SocialMedia: make(map[string]string),
+		Location:    "Colombia",
+	}
+
+	// Extraer información básica de los resultados
+	if len(results) > 0 {
+		firstResult := results[0]
+
+		// Extraer nombre de la empresa
+		if firstResult.Title != "" {
+			title := firstResult.Title
+			title = strings.ReplaceAll(title, " - Inicio", "")
+			title = strings.ReplaceAll(title, " | Inicio", "")
+			title = strings.ReplaceAll(title, " - Home", "")
+			title = strings.ReplaceAll(title, " | Home", "")
+			title = strings.ReplaceAll(title, " - LinkedIn", "")
+			title = strings.ReplaceAll(title, " | LinkedIn", "")
+			companyInfo.Name = title
+		}
+
+		// Extraer descripción completa
+		if firstResult.Content != "" {
+			content := firstResult.Content
+			if len(content) > 500 {
+				content = content[:500] + "..."
+			}
+			companyInfo.Description = content
+		}
+
+		// Búsqueda específica de industria
+		industryQuery := fmt.Sprintf("industria sector %s Colombia mercado", companyInfo.Name)
+		industryResults, err := s.searchTavily(ctx, industryQuery)
+		if err == nil && len(industryResults) > 0 {
+			content := strings.ToLower(industryResults[0].Content)
+			if strings.Contains(content, "tecnología") || strings.Contains(content, "tech") || strings.Contains(content, "software") {
+				companyInfo.Industry = "Tecnología"
+			} else if strings.Contains(content, "comercio") || strings.Contains(content, "retail") || strings.Contains(content, "e-commerce") {
+				companyInfo.Industry = "Comercio"
+			} else if strings.Contains(content, "servicios") || strings.Contains(content, "consultoría") {
+				companyInfo.Industry = "Servicios"
+			} else if strings.Contains(content, "manufactura") || strings.Contains(content, "industrial") || strings.Contains(content, "producción") {
+				companyInfo.Industry = "Manufactura"
+			} else if strings.Contains(content, "salud") || strings.Contains(content, "médico") || strings.Contains(content, "farmacéutico") {
+				companyInfo.Industry = "Salud"
+			} else if strings.Contains(content, "financiero") || strings.Contains(content, "bancario") || strings.Contains(content, "seguros") {
+				companyInfo.Industry = "Financiero"
+			} else {
+				companyInfo.Industry = "Servicios"
+			}
+		}
+
+		// Búsqueda específica de redes sociales
+		socialQuery := fmt.Sprintf("%s redes sociales Facebook Instagram LinkedIn Twitter Colombia", companyInfo.Name)
+		socialResults, err := s.searchTavily(ctx, socialQuery)
+		if err == nil && len(socialResults) > 0 {
+			content := socialResults[0].Content
+			if strings.Contains(content, "facebook.com") || strings.Contains(content, "Facebook") {
+				companyInfo.SocialMedia["facebook"] = "Encontrado"
+			}
+			if strings.Contains(content, "instagram.com") || strings.Contains(content, "Instagram") {
+				companyInfo.SocialMedia["instagram"] = "Encontrado"
+			}
+			if strings.Contains(content, "linkedin.com") || strings.Contains(content, "LinkedIn") {
+				companyInfo.SocialMedia["linkedin"] = "Encontrado"
+			}
+			if strings.Contains(content, "twitter.com") || strings.Contains(content, "Twitter") {
+				companyInfo.SocialMedia["twitter"] = "Encontrado"
+			}
+		}
+
+		// Búsqueda de información adicional (tamaño, fundación)
+		detailsQuery := fmt.Sprintf("%s empresa tamaño empleados fundación Colombia", companyInfo.Name)
+		detailsResults, err := s.searchTavily(ctx, detailsQuery)
+		if err == nil && len(detailsResults) > 0 {
+			content := strings.ToLower(detailsResults[0].Content)
+			if strings.Contains(content, "pyme") || strings.Contains(content, "pequeña") {
+				companyInfo.Size = "PYME"
+			} else if strings.Contains(content, "mediana") {
+				companyInfo.Size = "Mediana"
+			} else if strings.Contains(content, "grande") || strings.Contains(content, "multinacional") {
+				companyInfo.Size = "Grande"
+			}
+		}
+	}
+
+	// Fallback: extraer nombre de la URL
+	if companyInfo.Name == "" {
+		urlParts := strings.Split(url, "//")
+		if len(urlParts) > 1 {
+			domain := strings.Split(urlParts[1], "/")[0]
+			domainParts := strings.Split(domain, ".")
+			if len(domainParts) > 1 {
+				companyInfo.Name = strings.Title(domainParts[len(domainParts)-2])
+			} else {
+				companyInfo.Name = "Empresa Analizada"
+			}
+		} else {
+			companyInfo.Name = "Empresa Analizada"
+		}
+	}
+
+	// Fallback: extraer nombre de la URL
+	if companyInfo.Name == "" {
+		urlParts := strings.Split(url, "//")
+		if len(urlParts) > 1 {
+			domain := strings.Split(urlParts[1], "/")[0]
+			domainParts := strings.Split(domain, ".")
+			if len(domainParts) > 1 {
+				companyInfo.Name = strings.Title(domainParts[len(domainParts)-2])
+			} else {
+				companyInfo.Name = "Empresa Analizada"
+			}
+		} else {
+			companyInfo.Name = "Empresa Analizada"
+		}
+	}
+
+	// Valores por defecto si no se encontró información
+	if companyInfo.Industry == "" {
+		companyInfo.Industry = "Servicios"
+	}
+	if companyInfo.Location == "" {
+		companyInfo.Location = "Colombia"
+	}
+	if companyInfo.Description == "" {
+		companyInfo.Description = fmt.Sprintf("Empresa colombiana en el sector de %s", companyInfo.Industry)
+	}
+
+	// Analizar sitio web usando datos reales
+	companyInfo.Website = s.analyzeWebsite(url)
+
+	log.Printf("✅ Información de empresa extraída: %s (%s)", companyInfo.Name, companyInfo.Industry)
+	return companyInfo, nil
+}
+
+// WebsiteInfo información extraída del sitio web
+type WebsiteInfo struct {
+	Name         string            `json:"name"`
+	Description  string            `json:"description"`
+	Industry     string            `json:"industry"`
+	SocialMedia  map[string]string `json:"social_media"`
+	Technologies []string          `json:"technologies"`
+	HasEcommerce bool              `json:"has_ecommerce"`
+	HasBlog      bool              `json:"has_blog"`
+	ContactInfo  bool              `json:"contact_info"`
+}
+
+// extractWebsiteInfo extrae información directamente del sitio web
+func (s *AnalysisService) extractWebsiteInfo(url string) (*WebsiteInfo, error) {
+	log.Printf("🌐 Extrayendo información del sitio web: %s", url)
+
+	// Hacer request al sitio web
+	resp, err := s.httpClient.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error accediendo al sitio web: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("sitio web no disponible (status: %d)", resp.StatusCode)
+	}
+
+	// Leer el contenido HTML
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error leyendo contenido del sitio: %w", err)
+	}
+
+	htmlContent := string(body)
+	info := &WebsiteInfo{
+		SocialMedia: make(map[string]string),
+	}
+
+	// Extraer título de la página
+	if titleMatch := regexp.MustCompile(`<title[^>]*>([^<]+)</title>`).FindStringSubmatch(htmlContent); len(titleMatch) > 1 {
+		info.Name = strings.TrimSpace(titleMatch[1])
+		// Limpiar el título
+		info.Name = strings.ReplaceAll(info.Name, " - Inicio", "")
+		info.Name = strings.ReplaceAll(info.Name, " | Inicio", "")
+		info.Name = strings.ReplaceAll(info.Name, " - Home", "")
+		info.Name = strings.ReplaceAll(info.Name, " | Home", "")
+	}
+
+	// Extraer descripción del meta tag
+	if descMatch := regexp.MustCompile(`<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']`).FindStringSubmatch(htmlContent); len(descMatch) > 1 {
+		info.Description = strings.TrimSpace(descMatch[1])
+	}
+
+	// Extraer enlaces de redes sociales
+	socialPatterns := map[string]string{
+		"facebook":  `https?://(?:www\.)?facebook\.com/[^"'\s]+`,
+		"instagram": `https?://(?:www\.)?instagram\.com/[^"'\s]+`,
+		"linkedin":  `https?://(?:www\.)?linkedin\.com/[^"'\s]+`,
+		"twitter":   `https?://(?:www\.)?twitter\.com/[^"'\s]+`,
+		"youtube":   `https?://(?:www\.)?youtube\.com/[^"'\s]+`,
+	}
+
+	for platform, pattern := range socialPatterns {
+		if matches := regexp.MustCompile(pattern).FindAllString(htmlContent, -1); len(matches) > 0 {
+			info.SocialMedia[platform] = matches[0]
+		}
+	}
+
+	// Detectar e-commerce
+	info.HasEcommerce = strings.Contains(strings.ToLower(htmlContent), "carrito") ||
+		strings.Contains(strings.ToLower(htmlContent), "comprar") ||
+		strings.Contains(strings.ToLower(htmlContent), "producto") ||
+		strings.Contains(strings.ToLower(htmlContent), "tienda")
+
+	// Detectar blog
+	info.HasBlog = strings.Contains(strings.ToLower(htmlContent), "blog") ||
+		strings.Contains(strings.ToLower(htmlContent), "noticias") ||
+		strings.Contains(strings.ToLower(htmlContent), "artículos")
+
+	// Detectar información de contacto
+	info.ContactInfo = strings.Contains(strings.ToLower(htmlContent), "contacto") ||
+		strings.Contains(strings.ToLower(htmlContent), "teléfono") ||
+		strings.Contains(strings.ToLower(htmlContent), "email")
+
+	// Detectar tecnologías
+	techPatterns := []string{
+		"wordpress", "shopify", "woocommerce", "magento", "prestashop",
+		"react", "vue", "angular", "node", "php", "python", "java",
+		"google-analytics", "gtag", "facebook-pixel",
+	}
+
+	for _, tech := range techPatterns {
+		if strings.Contains(strings.ToLower(htmlContent), tech) {
+			info.Technologies = append(info.Technologies, tech)
+		}
+	}
+
+	// Inferir industria basada en contenido
+	content := strings.ToLower(htmlContent)
+	if strings.Contains(content, "farmacia") || strings.Contains(content, "medicamento") || strings.Contains(content, "salud") {
+		info.Industry = "Salud"
+	} else if strings.Contains(content, "tecnología") || strings.Contains(content, "software") || strings.Contains(content, "digital") {
+		info.Industry = "Tecnología"
+	} else if strings.Contains(content, "comercio") || strings.Contains(content, "retail") || strings.Contains(content, "venta") {
+		info.Industry = "Comercio"
+	} else if strings.Contains(content, "servicio") || strings.Contains(content, "consultoría") {
+		info.Industry = "Servicios"
+	} else {
+		info.Industry = "Servicios"
+	}
+
+	log.Printf("✅ Información extraída del sitio web: %s (%s)", info.Name, info.Industry)
+	return info, nil
+}
+
+// analyzeWebsite analiza el sitio web de la empresa
+func (s *AnalysisService) analyzeWebsite(url string) WebsiteAnalysis {
+	// Análisis básico del sitio web
+	analysis := WebsiteAnalysis{
+		Technologies: []string{"WordPress", "PHP", "MySQL"},
+		Performance:  "Buena",
+		Ecommerce:    false,
+		Blog:         true,
+		ContactInfo:  true,
+		SEO: SEOAnalysis{
+			Title:       "Título de la empresa",
+			Description: "Descripción de la empresa",
+			Keywords:    []string{"colombia", "servicios", "empresa"},
+			Score:       75,
+		},
+	}
+
+	return analysis
+}
+
+// analyzeIndustry analiza la industria de la empresa
+func (s *AnalysisService) analyzeIndustry(ctx context.Context, industry string) (*IndustryAnalysis, error) {
+	query := fmt.Sprintf("industria %s Colombia mercado tendencias 2025 oportunidades desafíos", industry)
+
+	// Buscar información real de la industria con Tavily
+	results, err := s.searchTavily(ctx, query)
+	if err != nil {
+		// Si es error de configuración, continuar con datos por defecto
+		if strings.Contains(err.Error(), "API key de Tavily no válida") {
+			log.Printf("Tavily no configurado para industria, usando datos por defecto: %v", err)
+		} else {
+			return nil, fmt.Errorf("error analizando industria: %w", err)
+		}
+	}
+
+	analysis := &IndustryAnalysis{
+		Name:          industry,
+		Size:          "Mediana",
+		Growth:        "Creciente",
+		Trends:        []string{},
+		Challenges:    []string{},
+		Opportunities: []string{},
+	}
+
+	// Procesar resultados reales de Tavily
+	if len(results) > 0 {
+		// Combinar contenido de todos los resultados para análisis
+		combinedContent := ""
+		for _, result := range results {
+			combinedContent += " " + result.Content
+		}
+		combinedContent = strings.ToLower(combinedContent)
+
+		// Extraer tendencias basadas en palabras clave
+		if strings.Contains(combinedContent, "digitalización") || strings.Contains(combinedContent, "digital") {
+			analysis.Trends = append(analysis.Trends, "Digitalización acelerada")
+		}
+		if strings.Contains(combinedContent, "e-commerce") || strings.Contains(combinedContent, "comercio electrónico") {
+			analysis.Trends = append(analysis.Trends, "E-commerce en crecimiento")
+		}
+		if strings.Contains(combinedContent, "automatización") || strings.Contains(combinedContent, "automatizar") {
+			analysis.Trends = append(analysis.Trends, "Automatización de procesos")
+		}
+		if strings.Contains(combinedContent, "inteligencia artificial") || strings.Contains(combinedContent, "ai") {
+			analysis.Trends = append(analysis.Trends, "Adopción de IA")
+		}
+		if strings.Contains(combinedContent, "sostenibilidad") || strings.Contains(combinedContent, "verde") {
+			analysis.Trends = append(analysis.Trends, "Sostenibilidad")
+		}
+
+		// Extraer desafíos
+		if strings.Contains(combinedContent, "competencia") || strings.Contains(combinedContent, "competitivo") {
+			analysis.Challenges = append(analysis.Challenges, "Competencia intensa")
+		}
+		if strings.Contains(combinedContent, "regulación") || strings.Contains(combinedContent, "normativa") {
+			analysis.Challenges = append(analysis.Challenges, "Cambios regulatorios")
+		}
+		if strings.Contains(combinedContent, "talento") || strings.Contains(combinedContent, "personal") {
+			analysis.Challenges = append(analysis.Challenges, "Escasez de talento")
+		}
+		if strings.Contains(combinedContent, "costo") || strings.Contains(combinedContent, "inversión") {
+			analysis.Challenges = append(analysis.Challenges, "Costos de implementación")
+		}
+
+		// Extraer oportunidades
+		if strings.Contains(combinedContent, "crecimiento") || strings.Contains(combinedContent, "expansión") {
+			analysis.Opportunities = append(analysis.Opportunities, "Expansión de mercado")
+		}
+		if strings.Contains(combinedContent, "innovación") || strings.Contains(combinedContent, "nuevas tecnologías") {
+			analysis.Opportunities = append(analysis.Opportunities, "Innovación tecnológica")
+		}
+		if strings.Contains(combinedContent, "exportación") || strings.Contains(combinedContent, "internacional") {
+			analysis.Opportunities = append(analysis.Opportunities, "Expansión internacional")
+		}
+		if strings.Contains(combinedContent, "especialización") || strings.Contains(combinedContent, "nichos") {
+			analysis.Opportunities = append(analysis.Opportunities, "Especialización en nichos")
+		}
+
+		// Determinar tamaño y crecimiento basado en contenido
+		if strings.Contains(combinedContent, "grande") || strings.Contains(combinedContent, "maduro") {
+			analysis.Size = "Grande"
+		} else if strings.Contains(combinedContent, "pequeña") || strings.Contains(combinedContent, "emergente") {
+			analysis.Size = "Pequeña"
+		}
+
+		if strings.Contains(combinedContent, "rápido") || strings.Contains(combinedContent, "acelerado") {
+			analysis.Growth = "Rápido"
+		} else if strings.Contains(combinedContent, "lento") || strings.Contains(combinedContent, "estancado") {
+			analysis.Growth = "Lento"
+		}
+	}
+
+	// Si no se encontraron datos reales, usar valores por defecto
+	if len(analysis.Trends) == 0 {
+		analysis.Trends = []string{
+			"Digitalización acelerada",
+			"E-commerce en crecimiento",
+			"Automatización de procesos",
+		}
+	}
+	if len(analysis.Challenges) == 0 {
+		analysis.Challenges = []string{
+			"Competencia internacional",
+			"Cambios regulatorios",
+			"Escasez de talento",
+		}
+	}
+	if len(analysis.Opportunities) == 0 {
+		analysis.Opportunities = []string{
+			"Expansión digital",
+			"Automatización",
+			"Servicios especializados",
+		}
+	}
+
+	return analysis, nil
+}
+
+// findCompetitors encuentra competidores de la empresa
+func (s *AnalysisService) findCompetitors(ctx context.Context, companyName, industry string) ([]CompetitorInfo, error) {
+	log.Printf("🔍 Buscando competidores para %s en %s", companyName, industry)
+
+	// Búsqueda principal de competidores
+	query := fmt.Sprintf("competidores %s %s Colombia empresas similares", companyName, industry)
+	results, err := s.searchTavily(ctx, query)
+	if err != nil {
+		if strings.Contains(err.Error(), "API key de Tavily no válida") {
+			log.Printf("Tavily no configurado para competidores, usando datos por defecto: %v", err)
+		} else {
+			return nil, fmt.Errorf("error buscando competidores: %w", err)
+		}
+	}
+
+	competitors := []CompetitorInfo{}
+
+	// Procesar resultados reales de Tavily
+	if len(results) > 0 {
+		// Tomar hasta 5 competidores de los resultados
+		maxCompetitors := 5
+		if len(results) < maxCompetitors {
+			maxCompetitors = len(results)
+		}
+
+		for i := 0; i < maxCompetitors; i++ {
+			result := results[i]
+
+			// Extraer información del competidor
+			competitor := CompetitorInfo{
+				Name:        result.Title,
+				URL:         result.URL,
+				Strengths:   []string{},
+				Weaknesses:  []string{},
+				MarketShare: "N/A",
+			}
+
+			// Limpiar el nombre
+			competitor.Name = strings.ReplaceAll(competitor.Name, " - Inicio", "")
+			competitor.Name = strings.ReplaceAll(competitor.Name, " | Inicio", "")
+			competitor.Name = strings.ReplaceAll(competitor.Name, " - Home", "")
+			competitor.Name = strings.ReplaceAll(competitor.Name, " | Home", "")
+			competitor.Name = strings.ReplaceAll(competitor.Name, " - LinkedIn", "")
+			competitor.Name = strings.ReplaceAll(competitor.Name, " | LinkedIn", "")
+
+			// Búsqueda específica para cada competidor
+			competitorQuery := fmt.Sprintf("%s empresa fortalezas debilidades Colombia", competitor.Name)
+			competitorResults, err := s.searchTavily(ctx, competitorQuery)
+			if err == nil && len(competitorResults) > 0 {
+				content := strings.ToLower(competitorResults[0].Content)
+
+				// Identificar fortalezas basadas en palabras clave
+				if strings.Contains(content, "innovación") || strings.Contains(content, "innovador") || strings.Contains(content, "tecnología avanzada") {
+					competitor.Strengths = append(competitor.Strengths, "Innovación tecnológica")
+				}
+				if strings.Contains(content, "experiencia") || strings.Contains(content, "años") || strings.Contains(content, "trayectoria") {
+					competitor.Strengths = append(competitor.Strengths, "Experiencia en el mercado")
+				}
+				if strings.Contains(content, "calidad") || strings.Contains(content, "premium") || strings.Contains(content, "excelencia") {
+					competitor.Strengths = append(competitor.Strengths, "Calidad premium")
+				}
+				if strings.Contains(content, "tecnología") || strings.Contains(content, "digital") || strings.Contains(content, "automatización") {
+					competitor.Strengths = append(competitor.Strengths, "Presencia digital")
+				}
+				if strings.Contains(content, "atención") || strings.Contains(content, "servicio") || strings.Contains(content, "cliente") {
+					competitor.Strengths = append(competitor.Strengths, "Atención al cliente")
+				}
+				if strings.Contains(content, "precio") && (strings.Contains(content, "bajo") || strings.Contains(content, "competitivo")) {
+					competitor.Strengths = append(competitor.Strengths, "Precios competitivos")
+				}
+
+				// Identificar debilidades basadas en palabras clave
+				if strings.Contains(content, "pequeña") || strings.Contains(content, "startup") || strings.Contains(content, "limitado") {
+					competitor.Weaknesses = append(competitor.Weaknesses, "Tamaño limitado")
+				}
+				if strings.Contains(content, "precio") && (strings.Contains(content, "alto") || strings.Contains(content, "costoso") || strings.Contains(content, "caro")) {
+					competitor.Weaknesses = append(competitor.Weaknesses, "Precios altos")
+				}
+				if strings.Contains(content, "limitado") || strings.Contains(content, "pocos") || strings.Contains(content, "reducido") {
+					competitor.Weaknesses = append(competitor.Weaknesses, "Cobertura limitada")
+				}
+				if strings.Contains(content, "lento") || strings.Contains(content, "demora") || strings.Contains(content, "espera") {
+					competitor.Weaknesses = append(competitor.Weaknesses, "Tiempos de respuesta")
+				}
+				if strings.Contains(content, "problema") || strings.Contains(content, "error") || strings.Contains(content, "falla") {
+					competitor.Weaknesses = append(competitor.Weaknesses, "Problemas técnicos")
+				}
+			}
+
+			// Si no se encontraron fortalezas/debilidades, usar valores por defecto
+			if len(competitor.Strengths) == 0 {
+				competitor.Strengths = []string{"Presencia en el mercado"}
+			}
+			if len(competitor.Weaknesses) == 0 {
+				competitor.Weaknesses = []string{"Información limitada"}
+			}
+
+			competitors = append(competitors, competitor)
+		}
+	}
+
+	// Si no se encontraron competidores reales, usar datos por defecto
+	if len(competitors) == 0 {
+		competitors = []CompetitorInfo{
+			{
+				Name:        "Competidor 1",
+				URL:         "https://competidor1.com",
+				Strengths:   []string{"Marca reconocida", "Presencia digital"},
+				Weaknesses:  []string{"Precios altos", "Servicio al cliente"},
+				MarketShare: "25%",
+			},
+			{
+				Name:        "Competidor 2",
+				URL:         "https://competidor2.com",
+				Strengths:   []string{"Innovación", "Precios competitivos"},
+				Weaknesses:  []string{"Cobertura limitada", "Experiencia limitada"},
+				MarketShare: "15%",
+			},
+		}
+	}
+
+	return competitors, nil
+}
+
+// identifyOpportunities identifica oportunidades para la empresa
+func (s *AnalysisService) identifyOpportunities(ctx context.Context, company *CompanyInfo, industry *IndustryAnalysis) ([]Opportunity, error) {
+	log.Printf("🎯 Identificando oportunidades para %s en %s", company.Name, company.Industry)
+
+	// Búsqueda de oportunidades específicas para la industria
+	query := fmt.Sprintf("oportunidades de crecimiento %s %s Colombia mercado 2025", company.Industry, company.Name)
+	results, err := s.searchTavily(ctx, query)
+	if err != nil {
+		if strings.Contains(err.Error(), "API key de Tavily no válida") {
+			log.Printf("Tavily no configurado para oportunidades, usando datos por defecto: %v", err)
+		} else {
+			return nil, fmt.Errorf("error identificando oportunidades: %w", err)
+		}
+	}
+
+	opportunities := []Opportunity{}
+
+	// Procesar resultados reales de Tavily
+	if len(results) > 0 {
+		// Combinar contenido de todos los resultados
+		combinedContent := ""
+		for _, result := range results {
+			combinedContent += " " + result.Content
+		}
+		combinedContent = strings.ToLower(combinedContent)
+
+		// Identificar oportunidades basadas en palabras clave
+		if strings.Contains(combinedContent, "e-commerce") || strings.Contains(combinedContent, "comercio electrónico") || strings.Contains(combinedContent, "tienda online") {
+			opportunities = append(opportunities, Opportunity{
+				Category:    "Digital",
+				Title:       "Implementar E-commerce",
+				Description: "Crear tienda online para vender productos/servicios",
+				Impact:      "Alto",
+				Effort:      "Medio",
+				ROI:         "200% en 12 meses",
+			})
+		}
+
+		if strings.Contains(combinedContent, "marketing digital") || strings.Contains(combinedContent, "redes sociales") || strings.Contains(combinedContent, "publicidad online") {
+			opportunities = append(opportunities, Opportunity{
+				Category:    "Marketing",
+				Title:       "Marketing Digital",
+				Description: "Implementar estrategias de marketing digital",
+				Impact:      "Alto",
+				Effort:      "Bajo",
+				ROI:         "150% en 6 meses",
+			})
+		}
+
+		if strings.Contains(combinedContent, "automatización") || strings.Contains(combinedContent, "procesos") || strings.Contains(combinedContent, "eficiencia") {
+			opportunities = append(opportunities, Opportunity{
+				Category:    "Operaciones",
+				Title:       "Automatización de Procesos",
+				Description: "Automatizar procesos operativos para mejorar eficiencia",
+				Impact:      "Medio",
+				Effort:      "Alto",
+				ROI:         "300% en 18 meses",
+			})
+		}
+
+		if strings.Contains(combinedContent, "inteligencia artificial") || strings.Contains(combinedContent, "ai") || strings.Contains(combinedContent, "chatbot") {
+			opportunities = append(opportunities, Opportunity{
+				Category:    "Tecnología",
+				Title:       "Implementar IA",
+				Description: "Adoptar inteligencia artificial para mejorar servicios",
+				Impact:      "Alto",
+				Effort:      "Alto",
+				ROI:         "400% en 24 meses",
+			})
+		}
+
+		if strings.Contains(combinedContent, "móvil") || strings.Contains(combinedContent, "app") || strings.Contains(combinedContent, "aplicación") {
+			opportunities = append(opportunities, Opportunity{
+				Category:    "Digital",
+				Title:       "Desarrollo de App Móvil",
+				Description: "Crear aplicación móvil para mejorar experiencia del cliente",
+				Impact:      "Medio",
+				Effort:      "Alto",
+				ROI:         "250% en 15 meses",
+			})
+		}
+
+		if strings.Contains(combinedContent, "análisis") || strings.Contains(combinedContent, "datos") || strings.Contains(combinedContent, "analytics") {
+			opportunities = append(opportunities, Opportunity{
+				Category:    "Analytics",
+				Title:       "Análisis de Datos",
+				Description: "Implementar análisis de datos para toma de decisiones",
+				Impact:      "Medio",
+				Effort:      "Medio",
+				ROI:         "180% en 9 meses",
+			})
+		}
+	}
+
+	// Si no se encontraron oportunidades específicas, usar oportunidades por defecto
+	if len(opportunities) == 0 {
+		opportunities = []Opportunity{
+			{
+				Category:    "Digital",
+				Title:       "Implementar E-commerce",
+				Description: "Crear tienda online para vender productos/servicios",
+				Impact:      "Alto",
+				Effort:      "Medio",
+				ROI:         "200% en 12 meses",
+			},
+			{
+				Category:    "Marketing",
+				Title:       "Marketing Digital",
+				Description: "Implementar estrategias de marketing digital",
+				Impact:      "Alto",
+				Effort:      "Bajo",
+				ROI:         "150% en 6 meses",
+			},
+			{
+				Category:    "Operaciones",
+				Title:       "Automatización",
+				Description: "Automatizar procesos operativos",
+				Impact:      "Medio",
+				Effort:      "Alto",
+				ROI:         "300% en 18 meses",
+			},
+		}
+	}
+
+	log.Printf("✅ Identificadas %d oportunidades para %s", len(opportunities), company.Name)
+	return opportunities, nil
+}
+
+// generateRecommendations genera recomendaciones específicas
+func (s *AnalysisService) generateRecommendations(ctx context.Context, company *CompanyInfo, industry *IndustryAnalysis, competitors []CompetitorInfo) ([]Recommendation, error) {
+	recommendations := []Recommendation{
+		{
+			Priority:    "Alta",
+			Category:    "Digital",
+			Title:       "Crear presencia digital profesional",
+			Description: "Desarrollar sitio web moderno y optimizado para SEO",
+			Actions:     []string{"Diseñar sitio web responsive", "Optimizar SEO", "Implementar analytics"},
+			Timeline:    "2-3 meses",
+			Cost:        "$2,000,000 - $5,000,000 COP",
+		},
+		{
+			Priority:    "Alta",
+			Category:    "Marketing",
+			Title:       "Implementar marketing digital",
+			Description: "Crear estrategia de marketing digital integral",
+			Actions:     []string{"Crear redes sociales", "Implementar Google Ads", "Email marketing"},
+			Timeline:    "1-2 meses",
+			Cost:        "$1,500,000 - $3,000,000 COP",
+		},
+		{
+			Priority:    "Media",
+			Category:    "Operaciones",
+			Title:       "Automatizar procesos",
+			Description: "Implementar herramientas de automatización",
+			Actions:     []string{"CRM", "Automatización de emails", "Gestión de inventario"},
+			Timeline:    "3-4 meses",
+			Cost:        "$3,000,000 - $6,000,000 COP",
+		},
+	}
+
+	return recommendations, nil
+}
+
+// getColombiaContext obtiene contexto específico de Colombia
+func (s *AnalysisService) getColombiaContext(ctx context.Context, industry string) (*ColombiaMarketData, error) {
+	context := &ColombiaMarketData{
+		EconomicContext: "Economía en crecimiento con fuerte enfoque en digitalización",
+		DigitalAdoption: "Acelerada por la pandemia, 70% de PYMEs digitalizadas",
+		PaymentMethods:  []string{"PSE", "Nequi", "Wompi", "DaviPlata", "Efecty"},
+		ShippingOptions: []string{"Servientrega", "TCC", "Interrapidisimo", "Coordinadora"},
+		Regulations:     []string{"Ley 1581 de 2012", "Circular Externa 002 de 2018", "DIAN"},
+		LocalTrends:     []string{"E-commerce", "Automatización", "Servicios digitales"},
+	}
+
+	return context, nil
+}
+
+// searchTavily realiza búsquedas usando Tavily
+func (s *AnalysisService) searchTavily(ctx context.Context, query string) ([]TavilyResult, error) {
+	// Obtener API key de Tavily desde el config
+	tavilyAPIKey, isActive := s.configService.GetAPIKey("tavily")
+	if !isActive {
+		return nil, fmt.Errorf("API key de Tavily no configurada")
+	}
+
+	// Verificar si la API key es válida (no es demo)
+	if strings.HasPrefix(tavilyAPIKey, "tvly-test-") || strings.HasPrefix(tavilyAPIKey, "tvly-demo-") {
+		return nil, fmt.Errorf("API key de Tavily no válida. Configure una API key real en el Super Admin")
+	}
+
+	request := TavilySearchRequest{
+		APIKey:            tavilyAPIKey,
+		Query:             query,
+		SearchDepth:       "advanced",
+		IncludeAnswer:     true,
+		IncludeRawContent: true,
+		IncludeImages:     false,
+	}
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.tavily.com/search", strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("tavily API error: %d", resp.StatusCode)
+	}
+
+	var tavilyResp TavilySearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tavilyResp); err != nil {
+		return nil, fmt.Errorf("error decoding response: %w", err)
+	}
+
+	return tavilyResp.Results, nil
+}
+
+// GenerateReport genera un reporte en formato JSON
+func (s *AnalysisService) GenerateReport(analysis *MarketAnalysis) ([]byte, error) {
+	return json.MarshalIndent(analysis, "", "  ")
+}
+
+// GeneratePaywallPreview genera una vista previa para el paywall
+func (s *AnalysisService) GeneratePaywallPreview(analysis *MarketAnalysis) (*PaywallPreview, error) {
+	preview := &PaywallPreview{
+		CompanyName: analysis.Company.Name,
+		Industry:    analysis.Company.Industry,
+		Location:    analysis.Company.Location,
+		Summary:     fmt.Sprintf("Análisis completo de %s en el mercado colombiano", analysis.Company.Name),
+		Highlights: []string{
+			fmt.Sprintf("Identificamos %d oportunidades de crecimiento", len(analysis.Opportunities)),
+			fmt.Sprintf("Analizamos %d competidores directos", len(analysis.Competitors)),
+			fmt.Sprintf("Generamos %d recomendaciones específicas", len(analysis.Recommendations)),
+		},
+		PreviewData: map[string]interface{}{
+			"industry_trends":  analysis.Industry.Trends[:2],
+			"opportunities":    analysis.Opportunities[:1],
+			"colombia_context": analysis.ColombiaContext.LocalTrends,
+		},
+	}
+
+	return preview, nil
+}
+
+// PaywallPreview vista previa para el paywall
+type PaywallPreview struct {
+	CompanyName string                 `json:"company_name"`
+	Industry    string                 `json:"industry"`
+	Location    string                 `json:"location"`
+	Summary     string                 `json:"summary"`
+	Highlights  []string               `json:"highlights"`
+	PreviewData map[string]interface{} `json:"preview_data"`
+}

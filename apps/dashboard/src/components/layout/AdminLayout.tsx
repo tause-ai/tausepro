@@ -62,7 +62,7 @@ const navigation = [
     icon: icons.reports,
     description: 'Analytics y métricas'
   },
-                {
+  { 
                 name: 'Configuración',
                 href: '/admin/settings',
                 icon: icons.settings,
@@ -79,7 +79,7 @@ const navigation = [
                 href: '/admin/prompts',
                 icon: icons.agents,
                 description: 'Gestionar prompts de IA'
-              },
+  },
 ]
 
 export default function AdminLayout() {
