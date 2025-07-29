@@ -19,8 +19,9 @@ export function LoginPage() {
 
     if (result.success) {
       alert('Inicio de sesión exitoso')
-      // Redirigir al dashboard
-      window.location.href = '/admin/dashboard'
+      // Redirigir según el tipo de usuario
+      // Por ahora, todos van al dashboard del cliente
+      window.location.href = '/'
     } else {
       alert(`Error: ${result.error}`)
     }
