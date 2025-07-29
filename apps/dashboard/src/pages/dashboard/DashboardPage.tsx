@@ -6,6 +6,7 @@ import { Progress } from '../../components/ui/progress'
 import { PaywallStatus } from '../../components/paywall/PaywallStatus'
 import { GoogleConnect } from '../../components/google/GoogleConnect'
 import { GoogleSuggestions } from '../../components/google/GoogleSuggestions'
+import OnboardingSection from '../../components/OnboardingSection'
 import { 
   TrendingUp, 
   Users, 
@@ -98,6 +99,9 @@ export default function DashboardPage() {
 
       {/* Paywall Status */}
       <PaywallStatus />
+
+      {/* Onboarding Guiado */}
+      <OnboardingSection />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
