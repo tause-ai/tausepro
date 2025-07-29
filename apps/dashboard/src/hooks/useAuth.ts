@@ -92,8 +92,6 @@ export function useAuth() {
 
       if (userError) {
         console.error('Error creating user record:', userError)
-        // Intentar eliminar el usuario de auth si falla la creación del registro
-        await supabase.auth.admin.deleteUser(supabaseUser.id)
         setError('Error al crear perfil de usuario')
         return { success: false, error: 'Error al crear perfil de usuario' }
       }
