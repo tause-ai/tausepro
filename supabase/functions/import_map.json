@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "supabase": "https://esm.sh/@supabase/supabase-js@2.39.0",
+    "cors": "https://esm.sh/cors@2.8.5",
+    "zod": "https://esm.sh/zod@3.22.4"
+  }
+} 

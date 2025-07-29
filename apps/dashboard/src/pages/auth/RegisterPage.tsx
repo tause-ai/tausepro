@@ -5,20 +5,31 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 
-export function LoginPage() {
-  const { signIn, loading, error } = useAuth()
+export function RegisterPage() {
+  const { signUp, loading, error } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: '',
+    fullName: '',
+    companyName: ''
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (formData.password !== formData.confirmPassword) {
+      alert('Las contraseñas no coinciden')
+      return
+    }
 
-    const result = await signIn(formData.email, formData.password)
+    const result = await signUp(formData.email, formData.password, {
+      full_name: formData.fullName,
+      company_name: formData.companyName
+    })
 
     if (result.success) {
-      alert('Inicio de sesión exitoso')
+      alert('Usuario registrado exitosamente')
       // Redirigir al dashboard
       window.location.href = '/admin/dashboard'
     } else {
@@ -37,13 +48,37 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Iniciar Sesión - TausePro</CardTitle>
+          <CardTitle>Registro - TausePro</CardTitle>
           <CardDescription>
-            Accede a tu cuenta de TausePro
+            Crea tu cuenta para acceder a TausePro
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="fullName">Nombre completo</Label>
+              <Input
+                id="fullName"
+                name="fullName"
+                type="text"
+                value={formData.fullName}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="companyName">Nombre de la empresa</Label>
+              <Input
+                id="companyName"
+                name="companyName"
+                type="text"
+                value={formData.companyName}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
             <div>
               <Label htmlFor="email">Email</Label>
               <Input
@@ -65,6 +100,20 @@ export function LoginPage() {
                 value={formData.password}
                 onChange={handleChange}
                 required
+                minLength={6}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                minLength={6}
               />
             </div>
 
@@ -79,13 +128,13 @@ export function LoginPage() {
               className="w-full"
               disabled={loading}
             >
-              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              {loading ? 'Registrando...' : 'Registrarse'}
             </Button>
           </form>
 
           <div className="mt-4 text-center">
-            <a href="/admin/register" className="text-blue-600 hover:underline">
-              ¿No tienes cuenta? Regístrate
+            <a href="/admin/login" className="text-blue-600 hover:underline">
+              ¿Ya tienes cuenta? Inicia sesión
             </a>
           </div>
         </CardContent>

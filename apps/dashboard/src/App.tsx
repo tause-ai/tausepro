@@ -1,16 +1,18 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, Suspense } from 'react'
-import { useAuthStore } from '@/store/auth'
+import { useAuth } from './hooks/useAuth'
 
 // Layout components
-import DashboardLayout from '@/components/layout/DashboardLayout'
-import AdminLayout from '@/components/layout/AdminLayout'
-import LoginPage from '@/pages/auth/LoginPage'
+import DashboardLayout from './components/layout/DashboardLayout'
+import AdminLayout from './components/layout/AdminLayout'
+import { LoginPage } from './pages/auth/LoginPage'
+import { RegisterPage } from './pages/auth/RegisterPage'
 
 // Dashboard pages (Clientes PYMEs)
 import DashboardPage from '@/pages/dashboard/DashboardPage'
 import AnalyticsPage from '@/pages/analytics/AnalyticsPage'
 import AgentsPage from '@/pages/agents/AgentsPage'
+import AgentChatPage from '@/pages/agents/AgentChatPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 
 // Admin pages (Super Admin)
@@ -25,7 +27,7 @@ import AdminReportsPage from '@/pages/admin/AdminReportsPage'
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage'
 import AdminAIIntegrationsPage from '@/pages/admin/AdminAIIntegrationsPage'
 import AdminPromptsPage from '@/pages/admin/AdminPromptsPage'
-import AnalysisPage from '@/pages/dashboard/AnalysisPage'
+import AnalysisPage from '@/pages/analysis/AnalysisPage'
 
 // Loading component
 function LoadingPage() {
@@ -41,18 +43,18 @@ function LoadingPage() {
 
 // Protected route wrapper for regular users
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, user } = useAuthStore()
+  const { user, loading } = useAuth()
   
-  if (isLoading) {
+  if (loading) {
     return <LoadingPage />
   }
   
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+  if (!user) {
+    return <Navigate to="/admin/login" replace />
   }
 
   // Si es super admin, redirigir al admin dashboard
-  if (user?.role === 'super_admin') {
+  if (user.role === 'super_admin') {
     return <Navigate to="/admin/dashboard" replace />
   }
   
@@ -61,19 +63,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Protected route wrapper for admin routes (no redirect loop)
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, user } = useAuthStore()
+  const { user, loading } = useAuth()
   
-  if (isLoading) {
+  if (loading) {
     return <LoadingPage />
   }
   
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/admin/login" replace />
   }
 
   // Verificar que sea super admin
-  if (user?.role !== 'super_admin') {
-    return <Navigate to="/login" replace />
+  if (user.role !== 'super_admin') {
+    return <Navigate to="/admin/login" replace />
   }
   
   return <>{children}</>
@@ -81,53 +83,53 @@ function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Public route wrapper (redirect to dashboard if authenticated)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore()
+  const { user, loading } = useAuth()
   
-  if (isLoading) {
+  if (loading) {
     return <LoadingPage />
   }
   
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />
+  if (user) {
+    return <Navigate to="/admin/dashboard" replace />
   }
   
   return <>{children}</>
 }
 
 function App() {
-  const { refreshUser } = useAuthStore()
+  const { getCurrentUser } = useAuth()
   
   // Initialize app data
   useEffect(() => {
     try {
-      refreshUser()
+      getCurrentUser()
     } catch (error) {
       console.error('Error initializing app:', error)
     }
-  }, [refreshUser])
+  }, [getCurrentUser])
   
   return (
     <Router>
       <Suspense fallback={<LoadingPage />}>
         <div className="min-h-screen bg-background font-sans antialiased">
           <Routes>
-                                    {/* Public routes */}
-                        <Route 
-                          path="/login" 
-                          element={
-                            <PublicRoute>
-                              <LoginPage />
-                            </PublicRoute>
-                          } 
-                        />
-                        <Route 
-                          path="/admin/login" 
-                          element={
-                            <PublicRoute>
-                              <AdminLoginPage />
-                            </PublicRoute>
-                          } 
-                        />
+            {/* Public routes */}
+            <Route 
+              path="/admin/login" 
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              } 
+            />
+            <Route 
+              path="/admin/register" 
+              element={
+                <PublicRoute>
+                  <RegisterPage />
+                </PublicRoute>
+              } 
+            />
             
                                     {/* Protected dashboard routes (Clientes PYMEs) */}
                         <Route 
@@ -145,7 +147,8 @@ function App() {
                           <Route path="dashboard" element={<DashboardPage />} />
                           <Route path="analytics" element={<AnalyticsPage />} />
                           <Route path="agents" element={<AgentsPage />} />
-                        <Route path="analysis" element={<AnalysisPage />} />
+                          <Route path="agents/:agentId/chat" element={<AgentChatPage />} />
+                          <Route path="analysis" element={<AnalysisPage />} />
                           <Route path="settings" element={<SettingsPage />} />
                           
                           {/* Catch all - redirect to dashboard */}
