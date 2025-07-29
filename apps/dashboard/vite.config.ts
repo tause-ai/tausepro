@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5174,
+    port: 5173,
     host: '0.0.0.0',
     proxy: {
       // Proxy para el MCP Server local
@@ -37,6 +37,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: ['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js'],
   },
 })
