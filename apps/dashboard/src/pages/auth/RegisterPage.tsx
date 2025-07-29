@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -15,6 +15,24 @@ export function RegisterPage() {
     companyName: ''
   })
 
+  const [isFromPaywall, setIsFromPaywall] = useState(false)
+  const [companyUrl, setCompanyUrl] = useState('')
+
+  // Obtener parámetros de URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const redirect = urlParams.get('redirect')
+    const companyUrlParam = urlParams.get('companyUrl')
+    const source = urlParams.get('source')
+
+    // Si viene del paywall, mostrar mensaje especial
+    if (source === 'paywall' && companyUrlParam) {
+      setIsFromPaywall(true)
+      setCompanyUrl(companyUrlParam)
+      console.log('Usuario viene del paywall para analizar:', companyUrlParam)
+    }
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -30,8 +48,20 @@ export function RegisterPage() {
 
     if (result.success) {
       alert('Usuario registrado exitosamente')
-      // Redirigir al dashboard
-      window.location.href = '/admin/dashboard'
+      
+      // Verificar si viene del paywall
+      const urlParams = new URLSearchParams(window.location.search)
+      const redirect = urlParams.get('redirect')
+      const companyUrl = urlParams.get('companyUrl')
+      const source = urlParams.get('source')
+      
+      if (source === 'paywall' && redirect === 'analysis' && companyUrl) {
+        // Redirigir a la página de análisis con la URL de la empresa
+        window.location.href = `/analysis?companyUrl=${encodeURIComponent(companyUrl)}`
+      } else {
+        // Redirigir al dashboard por defecto
+        window.location.href = '/dashboard'
+      }
     } else {
       alert(`Error: ${result.error}`)
     }
@@ -50,7 +80,10 @@ export function RegisterPage() {
         <CardHeader>
           <CardTitle>Registro - TausePro</CardTitle>
           <CardDescription>
-            Crea tu cuenta para acceder a TausePro
+            {isFromPaywall 
+              ? `Crea tu cuenta gratuita para desbloquear el análisis completo de ${companyUrl}`
+              : 'Crea tu cuenta para acceder a TausePro'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
