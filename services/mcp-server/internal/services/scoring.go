@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -183,41 +184,98 @@ func (s *ScoringService) calculateWebPresenceScore(analysis *MarketAnalysis) Cat
 	}
 }
 
-// calculateLocalSEOScore evalúa el SEO local y presencia en Google
+// calculateLocalSEOScore evalúa el SEO local y presencia en Google de forma realista
 func (s *ScoringService) calculateLocalSEOScore(analysis *MarketAnalysis) CategoryScore {
 	score := 0.0
 	details := []ScoreDetail{}
 
-	// Google My Business (50 puntos) - Simulado por ahora
-	// En implementación real, se haría búsqueda en Google
-	score += 30
-	details = append(details, ScoreDetail{
-		Item:   "Presencia en Google",
-		Points: 30,
-		Status: "✓",
-	})
+	// Google My Business - evaluación más realista
+	googleScore := 0
+	// Solo dar puntos si realmente hay evidencia de presencia en Google
+	if len(analysis.Company.SocialMedia) > 0 {
+		googleScore = 15 // Presencia básica
+		details = append(details, ScoreDetail{
+			Item:   "Presencia básica en Google",
+			Points: 15,
+			Status: "~",
+		})
+	} else {
+		details = append(details, ScoreDetail{
+			Item:           "Sin presencia verificable en Google",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Crear perfil de Google My Business",
+		})
+	}
 
-	// SEO básico (40 puntos)
+	// SEO básico - evaluación más estricta
 	seoScore := 0
-	if analysis.Company.Website.SEO.Title != "" {
+	if analysis.Company.Website.SEO.Title != "" && analysis.Company.Website.SEO.Title != "Análisis pendiente" {
 		seoScore += 10
+		details = append(details, ScoreDetail{
+			Item:   "Título SEO",
+			Points: 10,
+			Status: "✓",
+		})
+	} else {
+		details = append(details, ScoreDetail{
+			Item:           "Título SEO faltante",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Optimizar títulos de página",
+		})
 	}
-	if analysis.Company.Website.SEO.Description != "" {
+	
+	if analysis.Company.Website.SEO.Description != "" && analysis.Company.Website.SEO.Description != "Requiere análisis detallado del sitio" {
 		seoScore += 10
+		details = append(details, ScoreDetail{
+			Item:   "Meta descripción",
+			Points: 10,
+			Status: "✓",
+		})
+	} else {
+		details = append(details, ScoreDetail{
+			Item:           "Meta descripción faltante",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Agregar meta descripciones",
+		})
 	}
-	if len(analysis.Company.Website.SEO.Keywords) > 0 {
+	
+	if len(analysis.Company.Website.SEO.Keywords) > 0 && analysis.Company.Website.SEO.Keywords[0] != "pendiente" {
 		seoScore += 10
+		details = append(details, ScoreDetail{
+			Item:   "Palabras clave",
+			Points: 10,
+			Status: "✓",
+		})
+	} else {
+		details = append(details, ScoreDetail{
+			Item:           "Palabras clave no optimizadas",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Investigar y optimizar palabras clave",
+		})
 	}
-	if analysis.Company.Website.SEO.Score > 70 {
+	
+	// Score SEO realista - no dar puntos automáticamente
+	if analysis.Company.Website.SEO.Score > 50 {
 		seoScore += 10
+		details = append(details, ScoreDetail{
+			Item:   "Score SEO aceptable",
+			Points: 10,
+			Status: "✓",
+		})
+	} else {
+		details = append(details, ScoreDetail{
+			Item:           "Score SEO bajo",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Mejorar optimización SEO general",
+		})
 	}
 
-	score += float64(seoScore)
-	details = append(details, ScoreDetail{
-		Item:   "Optimización SEO",
-		Points: seoScore,
-		Status: s.getStatus(seoScore, 40),
-	})
+	score += float64(googleScore + seoScore)
 
 	// Ubicación y contexto colombiano (30 puntos)
 	colombiaScore := 0
@@ -243,38 +301,65 @@ func (s *ScoringService) calculateLocalSEOScore(analysis *MarketAnalysis) Catego
 	}
 }
 
-// calculateSocialMediaScore evalúa la presencia en redes sociales
+// calculateSocialMediaScore evalúa la presencia en redes sociales de forma realista
 func (s *ScoringService) calculateSocialMediaScore(analysis *MarketAnalysis) CategoryScore {
 	score := 0.0
 	details := []ScoreDetail{}
 
-	// Presencia en redes principales
+	// Presencia en redes principales - solo contar las que realmente existen
 	socialNetworks := map[string]int{
 		"facebook":  20,
 		"instagram": 20,
 		"whatsapp":  25,
 		"tiktok":    10,
-		"linkedin":  10,
-		"youtube":   15,
+		"linkedin":  15,
+		"twitter":   10,
 	}
 
+	foundNetworks := 0
 	for network, points := range socialNetworks {
 		if s.hasSocialPresence(analysis.Company.SocialMedia, network) {
 			score += float64(points)
+			foundNetworks++
 			details = append(details, ScoreDetail{
-				Item:   strings.Title(network),
+				Item:   strings.Title(network) + " verificado",
 				Points: points,
 				Status: "✓",
 			})
+		} else {
+			// Mostrar redes faltantes importantes
+			if network == "facebook" || network == "instagram" || network == "whatsapp" {
+				details = append(details, ScoreDetail{
+					Item:           strings.Title(network) + " no encontrado",
+					Points:         0,
+					Status:         "✗",
+					Recommendation: fmt.Sprintf("Crear presencia en %s", strings.Title(network)),
+				})
+			}
 		}
 	}
 
-	// Actividad reciente (bonus)
-	if s.hasRecentSocialActivity(analysis.Company.SocialMedia) {
-		bonus := math.Min(score*0.2, 20) // 20% bonus, max 20 puntos
+	// Penalizar si no hay presencia en redes sociales
+	if foundNetworks == 0 {
+		details = append(details, ScoreDetail{
+			Item:           "Sin presencia en redes sociales",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Crear perfiles en redes sociales principales",
+		})
+	} else if foundNetworks == 1 {
+		details = append(details, ScoreDetail{
+			Item:           "Presencia limitada en redes",
+			Points:         0,
+			Status:         "~",
+			Recommendation: "Expandir presencia a más redes sociales",
+		})
+	} else {
+		// Bonus por diversificación
+		bonus := math.Min(float64(foundNetworks*5), 15)
 		score += bonus
 		details = append(details, ScoreDetail{
-			Item:   "Actividad reciente",
+			Item:   "Diversificación de redes",
 			Points: int(bonus),
 			Status: "✓",
 		})
@@ -342,41 +427,97 @@ func (s *ScoringService) calculateEngagementScore(analysis *MarketAnalysis) Cate
 	}
 }
 
-// calculateTechnicalScore evalúa aspectos técnicos
+// calculateTechnicalScore evalúa aspectos técnicos de forma realista
 func (s *ScoringService) calculateTechnicalScore(analysis *MarketAnalysis) CategoryScore {
 	score := 0.0
 	details := []ScoreDetail{}
 
-	// HTTPS/SSL (30 puntos) - Simulado
-	score += 30
-	details = append(details, ScoreDetail{
-		Item:   "Sitio seguro (HTTPS)",
-		Points: 30,
-		Status: "✓",
-	})
-
-	// Mobile responsive (40 puntos) - Simulado
-	score += 40
-	details = append(details, ScoreDetail{
-		Item:   "Diseño móvil",
-		Points: 40,
-		Status: "✓",
-	})
-
-	// Velocidad de carga (30 puntos)
-	if analysis.Company.Website.Performance == "Buena" {
+	// HTTPS/SSL - evaluación más realista
+	if strings.HasPrefix(analysis.Company.URL, "https://") {
 		score += 30
 		details = append(details, ScoreDetail{
-			Item:   "Carga rápida",
+			Item:   "Sitio seguro (HTTPS)",
 			Points: 30,
 			Status: "✓",
 		})
 	} else {
+		details = append(details, ScoreDetail{
+			Item:           "Sitio no seguro (HTTP)",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Implementar certificado SSL/HTTPS",
+		})
+	}
+
+	// Mobile responsive - evaluación básica
+	// Por ahora asumir que sitios modernos son responsive
+	if len(analysis.Company.Website.Technologies) > 0 {
+		hasModernTech := false
+		for _, tech := range analysis.Company.Website.Technologies {
+			if strings.Contains(strings.ToLower(tech), "wordpress") || 
+			   strings.Contains(strings.ToLower(tech), "shopify") ||
+			   strings.Contains(strings.ToLower(tech), "wix") {
+				hasModernTech = true
+				break
+			}
+		}
+		
+		if hasModernTech {
+			score += 25
+			details = append(details, ScoreDetail{
+				Item:   "Diseño móvil (probable)",
+				Points: 25,
+				Status: "~",
+			})
+		} else {
+			score += 15
+			details = append(details, ScoreDetail{
+				Item:   "Diseño móvil (incierto)",
+				Points: 15,
+				Status: "~",
+			})
+		}
+	} else {
+		details = append(details, ScoreDetail{
+			Item:           "Diseño móvil no verificado",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Verificar y optimizar para dispositivos móviles",
+		})
+	}
+
+	// Velocidad de carga - más realista
+	switch analysis.Company.Website.Performance {
+	case "Buena":
+		score += 25
+		details = append(details, ScoreDetail{
+			Item:   "Velocidad de carga buena",
+			Points: 25,
+			Status: "✓",
+		})
+	case "Regular":
 		score += 15
 		details = append(details, ScoreDetail{
-			Item:   "Carga moderada",
+			Item:   "Velocidad de carga regular",
 			Points: 15,
 			Status: "~",
+		})
+	default:
+		details = append(details, ScoreDetail{
+			Item:           "Velocidad de carga no evaluada",
+			Points:         0,
+			Status:         "✗",
+			Recommendation: "Optimizar velocidad de carga del sitio",
+		})
+	}
+
+	// Funcionalidades técnicas adicionales
+	if analysis.Company.Website.Ecommerce {
+		score += 20
+		details = append(details, ScoreDetail{
+			Item:   "Funcionalidad e-commerce",
+			Points: 20,
+			Status: "✓",
 		})
 	}
 

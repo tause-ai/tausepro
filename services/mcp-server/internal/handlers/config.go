@@ -165,15 +165,16 @@ func (h *ConfigHandler) GetAPIKeyStatus(c *fiber.Ctx) error {
 		})
 	}
 
-	// Convertir a formato de estado
-	status := make(map[string]interface{})
+	// Convertir a formato esperado por el frontend
+	status := make([]map[string]interface{}, 0, len(apiKeys))
 	for _, key := range apiKeys {
-		status[key.Service] = map[string]interface{}{
-			"is_active":  key.IsActive,
-			"last_used":  key.LastUsed,
-			"usage":      key.Usage,
-			"masked_key": key.MaskedKey,
-		}
+		status = append(status, map[string]interface{}{
+			"service":     key.Service,
+			"configured":  key.IsActive,
+			"last_used":   key.LastUsed,
+			"usage":       key.Usage,
+			"masked_key":  key.MaskedKey,
+		})
 	}
 
 	return c.JSON(fiber.Map{

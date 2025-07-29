@@ -15,9 +15,9 @@
       }
     },
     "tavily": {
-      "api_key": "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",
+      "api_key": "",
       "search_depth": "advanced",
-      "is_active": true,
+      "is_active": false,
       "last_used": "2025-07-21T22:54:12.666485-05:00",
       "usage": {
         "requests": 0,

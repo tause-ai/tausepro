@@ -222,13 +222,41 @@ FORMATO:
 ]
 
 export default function AdminPromptsPage() {
-  const [prompts, setPrompts] = useState<SystemPrompt[]>(demoPrompts)
+  const [prompts, setPrompts] = useState<SystemPrompt[]>([])
   const [selectedPrompt, setSelectedPrompt] = useState<SystemPrompt | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [selectedAI, setSelectedAI] = useState<string>('all')
+
+  useEffect(() => {
+    loadPrompts()
+  }, [])
+
+  const loadPrompts = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('http://localhost:8080/api/v1/prompts')
+      const result = await response.json()
+      
+      if (result.success && result.data.prompts && result.data.prompts.length > 0) {
+        setPrompts(result.data.prompts)
+        setMessage('Prompts cargados desde el backend')
+      } else {
+        // Usar datos demo como fallback
+        setPrompts(demoPrompts)
+        setMessage('Usando prompts demo - Backend vacío')
+      }
+    } catch (err) {
+      console.error('Error cargando prompts:', err)
+      setPrompts(demoPrompts)
+      setMessage('Usando prompts demo - Backend no disponible')
+    } finally {
+      setIsLoading(false)
+      setTimeout(() => setMessage(''), 3000)
+    }
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('es-CO', {
@@ -262,12 +290,33 @@ export default function AdminPromptsPage() {
 
     try {
       setIsLoading(true)
-      // TODO: Implementar guardado real en backend
-      console.log('Guardando prompt:', selectedPrompt)
       
-      setMessage('✅ Prompt guardado exitosamente')
-      setIsEditing(false)
-      setSelectedPrompt(null)
+      const response = await fetch('http://localhost:8080/api/v1/prompts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: selectedPrompt.name,
+          description: selectedPrompt.description,
+          content: selectedPrompt.content,
+          category: selectedPrompt.category,
+          ai_service: selectedPrompt.aiService,
+          variables: selectedPrompt.variables,
+          is_active: selectedPrompt.isActive
+        }),
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        setMessage('✅ Prompt guardado exitosamente')
+        setIsEditing(false)
+        setSelectedPrompt(null)
+        loadPrompts() // Recargar prompts
+      } else {
+        setError(result.error || 'Error guardando prompt')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error guardando prompt')
     } finally {
@@ -288,10 +337,29 @@ export default function AdminPromptsPage() {
   const handleTestPrompt = async (prompt: SystemPrompt) => {
     try {
       setIsLoading(true)
-      // TODO: Implementar test real del prompt
-      console.log('Probando prompt:', prompt.name)
       
-      setMessage(`✅ Prompt "${prompt.name}" probado exitosamente`)
+      const response = await fetch('http://localhost:8080/api/v1/prompts/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt_id: prompt.id,
+          test_variables: {
+            company_name: 'Empresa Test',
+            industry: 'Tecnología',
+            location: 'Bogotá'
+          }
+        }),
+      })
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        setMessage(`✅ Prompt "${prompt.name}" probado exitosamente`)
+      } else {
+        setError(result.error || 'Error probando prompt')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error probando prompt')
     } finally {
@@ -604,4 +672,4 @@ export default function AdminPromptsPage() {
       )}
     </div>
   )
-} 
+}

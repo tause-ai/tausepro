@@ -13,7 +13,7 @@ import type {
 // =========================
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8090/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -73,54 +73,7 @@ export const authApi = {
 
 export const pymeApi = {
   getDashboard: async (): Promise<DashboardResponse> => {
-    // Modo demo temporal para testing
-    const token = useAuthStore.getState().token
-    if (token && token.startsWith('demo-token-')) {
-      // Datos demo para testing
-      return {
-        metrics: {
-          total_api_calls: 87,
-          total_agents: 3,
-          active_chats: 12,
-          messages_sent: 245,
-        },
-        usage: {
-          api_calls: {
-            used: 87,
-            limit: 100,
-            percentage: 87,
-          },
-          agents: {
-            used: 3,
-            limit: 3,
-            percentage: 100,
-          },
-        },
-        recent_activity: [
-          {
-            id: '1',
-            type: 'agent_execution',
-            description: 'Agente de ventas procesó consulta de cliente',
-            timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-          },
-          {
-            id: '2',
-            type: 'chat_message',
-            description: 'Mensaje enviado a través de WhatsApp Business',
-            timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-          },
-          {
-            id: '3',
-            type: 'system_alert',
-            description: 'Límite de agentes MCP alcanzado (3/3)',
-            timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-          },
-        ],
-        current_plan: 'gratis',
-      }
-    }
-    
-    // Intento de llamada real a la API
+    // Llamada real a la API del backend
     const response = await api.get('/pymes/dashboard')
     return response.data
   },

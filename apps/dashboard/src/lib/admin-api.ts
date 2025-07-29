@@ -12,7 +12,7 @@ import type {
 
 // Instancia de axios para el admin API
 const adminApiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -565,4 +565,4 @@ export const adminApiDemo = {
       lastUpdated: '2025-01-17T10:30:00Z',
     } as SystemMetrics,
   }),
-} 
+}

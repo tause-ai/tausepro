@@ -192,6 +192,42 @@ func (h *AnalysisHandler) GenerateReport(c *fiber.Ctx) error {
 	return c.Send(report)
 }
 
+// GenerateProfessionalSummary genera un resumen profesional con GPT
+func (h *AnalysisHandler) GenerateProfessionalSummary(c *fiber.Ctx) error {
+	var req AnalysisRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(AnalysisResponse{
+			Success: false,
+			Error:   "Formato de request inválido",
+		})
+	}
+
+	ctx := c.Context()
+	analysis, err := h.analysisService.AnalyzeCompany(ctx, req.URL)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(AnalysisResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Error en análisis: %v", err),
+		})
+	}
+
+	// Generar resumen profesional con GPT
+	summary, err := h.analysisService.GenerateProfessionalSummary(ctx, analysis)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(AnalysisResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Error generando resumen: %v", err),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"summary": summary,
+		"company": analysis.Company.Name,
+	})
+}
+
 // HealthCheck verifica el estado del servicio de análisis
 func (h *AnalysisHandler) HealthCheck(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{

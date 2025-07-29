@@ -1,113 +1,55 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 
-// Datos demo de integraciones de IA
-const demoIntegrations = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    description: 'GPT-4, GPT-4o, Embeddings, Whisper',
-    status: 'inactive',
-    apiKey: 'sk-...***...xyz',
-    lastUsed: '2025-07-21T00:00:00Z',
-    usage: {
-      requests: 0,
-      tokens: 0,
-      cost: 0
-    },
-    limits: {
-      daily: 10000,
-      monthly: 300000,
-      current: 0
-    },
-    icon: '🤖',
-    category: 'AI/LLM'
-  },
-  {
-    id: 'tavily',
+// Mapeo de servicios a información de display
+const serviceInfo = {
+  'tavily': {
     name: 'Tavily',
     description: 'Investigación web y análisis de mercado',
-    status: 'active',
-    apiKey: 'tvly-...***...abc',
-    lastUsed: '2025-07-21T22:04:45Z',
-    usage: {
-      requests: 0,
-      searches: 0,
-      cost: 0
-    },
-    limits: {
-      daily: 1000,
-      monthly: 30000,
-      current: 0
-    },
     icon: '🔍',
     category: 'Research'
   },
-  {
-    id: '11labs',
+  'openai': {
+    name: 'OpenAI',
+    description: 'GPT-4, GPT-4o, Embeddings, Whisper',
+    icon: '🤖',
+    category: 'AI/LLM'
+  },
+  'serper': {
+    name: 'Serper',
+    description: 'API de búsqueda web alternativa',
+    icon: '🔍',
+    category: 'Research'
+  },
+  'elevenlabs': {
     name: 'ElevenLabs',
     description: 'Síntesis de voz conversacional',
-    status: 'inactive',
-    apiKey: 'xi-api-...***...def',
-    lastUsed: '2025-01-20T15:20:00Z',
-    usage: {
-      requests: 0,
-      characters: 0,
-      cost: 0
-    },
-    limits: {
-      daily: 10000,
-      monthly: 300000,
-      current: 0
-    },
     icon: '🎤',
     category: 'Voice'
   },
-  {
-    id: 'google-analytics',
+  'anthropic': {
+    name: 'Anthropic',
+    description: 'Claude AI para análisis avanzado',
+    icon: '🧠',
+    category: 'AI/LLM'
+  },
+  'google-analytics': {
     name: 'Google Analytics',
     description: 'Métricas de tráfico y comportamiento',
-    status: 'active',
-    apiKey: 'AIza...***...ghi',
-    lastUsed: '2025-07-21T10:15:00Z',
-    usage: {
-      requests: 567,
-      reports: 23,
-      cost: 0
-    },
-    limits: {
-      daily: 10000,
-      monthly: 300000,
-      current: 567
-    },
     icon: '📊',
     category: 'Analytics'
   },
-  {
-    id: 'meta-whatsapp',
+  'meta-whatsapp': {
     name: 'Meta WhatsApp',
     description: 'WhatsApp Business API',
-    status: 'active',
-    apiKey: 'EAA...***...jkl',
-    lastUsed: '2025-07-21T09:30:00Z',
-    usage: {
-      requests: 1234,
-      messages: 5678,
-      cost: 0
-    },
-    limits: {
-      daily: 1000,
-      monthly: 30000,
-      current: 1234
-    },
     icon: '📱',
     category: 'Communication'
   }
-]
+}
 
 // Configuraciones de planes
 const planConfigs = {
@@ -135,6 +77,7 @@ const planConfigs = {
 
 export default function AdminAIIntegrationsPage() {
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null)
+  const [integrations, setIntegrations] = useState<any[]>([])
   const [isAddingNew, setIsAddingNew] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -147,6 +90,20 @@ export default function AdminAIIntegrationsPage() {
     apiKey: '',
     category: 'AI/LLM'
   })
+
+  // Simple toast replacement
+  const toast = (options: { title: string; description: string; variant?: string }) => {
+    console.log(`${options.title}: ${options.description}`)
+    if (options.variant === 'destructive') {
+      setError(options.description)
+    } else {
+      setMessage(options.description)
+    }
+  }
+
+  useEffect(() => {
+    loadIntegrations()
+  }, [])
 
   const getStatusColor = (status: string) => {
     return status === 'active' ? 'bg-green-500' : 'bg-red-500'
@@ -187,7 +144,7 @@ export default function AdminAIIntegrationsPage() {
       setIsLoading(true)
       
       // Obtener la API key real del backend
-      const response = await fetch('http://localhost:8081/api/v1/config/')
+      const response = await fetch('http://localhost:8080/api/v1/config/')
       const result = await response.json()
       
       if (!result.success) {
@@ -202,7 +159,7 @@ export default function AdminAIIntegrationsPage() {
       }
 
       // Probar la conexión usando la API key real
-      const testResponse = await fetch('http://localhost:8081/api/v1/config/test-api-key', {
+      const testResponse = await fetch('http://localhost:8080/api/v1/config/test-api-key', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -239,7 +196,7 @@ export default function AdminAIIntegrationsPage() {
   const handleSaveAPIKey = async (service: string, apiKey: string) => {
     try {
       setIsLoading(true)
-      const response = await fetch('http://localhost:8081/api/v1/config/api-key', {
+      const response = await fetch('http://localhost:8080/api/v1/config/api-key', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -251,8 +208,8 @@ export default function AdminAIIntegrationsPage() {
 
       if (result.success) {
         setMessage(result.message)
-        // Recargar datos
-        loadIntegrations()
+        // Recargar datos después de un breve delay para evitar bucles
+        setTimeout(() => loadIntegrations(), 100)
       } else {
         setError(result.error)
       }
@@ -270,7 +227,7 @@ export default function AdminAIIntegrationsPage() {
   const handleTestAPIKey = async (service: string, apiKey: string) => {
     try {
       setIsLoading(true)
-      const response = await fetch('http://localhost:8081/api/v1/config/test-api-key', {
+      const response = await fetch('http://localhost:8080/api/v1/config/test-api-key', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -297,17 +254,185 @@ export default function AdminAIIntegrationsPage() {
   }
 
   const loadIntegrations = async () => {
+    console.log('🔄 Iniciando carga de integraciones...')
+    setIsLoading(true)
+    
+    // Datos demo que siempre se cargan para asegurar funcionalidad
+    const demoIntegrations = [
+      {
+        id: 'openai',
+        name: 'OpenAI',
+        description: 'GPT-4, GPT-4o, Embeddings, Whisper',
+        status: 'active',
+        apiKey: 'sk-proj-***...***abc123',
+        lastUsed: '2025-01-21T10:30:00Z',
+        usage: {
+          requests: 8547,
+          cost: 45.67
+        },
+        limits: {
+          daily: 10000,
+          monthly: 300000,
+          current: 8547
+        },
+        icon: '🤖',
+        category: 'AI/LLM'
+      },
+      {
+        id: 'tavily',
+        name: 'Tavily',
+        description: 'Investigación web y análisis de mercado',
+        status: 'active',
+        apiKey: 'tvly-***...***xyz789',
+        lastUsed: '2025-01-21T09:15:00Z',
+        usage: {
+          requests: 2341,
+          cost: 12.45
+        },
+        limits: {
+          daily: 5000,
+          monthly: 150000,
+          current: 2341
+        },
+        icon: '🔍',
+        category: 'Research'
+      },
+      {
+        id: 'elevenlabs',
+        name: 'ElevenLabs',
+        description: 'Síntesis de voz conversacional',
+        status: 'active',
+        apiKey: 'el_***...***def456',
+        lastUsed: '2025-01-20T16:45:00Z',
+        usage: {
+          requests: 156,
+          cost: 8.90
+        },
+        limits: {
+          daily: 1000,
+          monthly: 30000,
+          current: 156
+        },
+        icon: '🎤',
+        category: 'Voice'
+      },
+      {
+        id: 'anthropic',
+        name: 'Anthropic',
+        description: 'Claude AI para análisis avanzado',
+        status: 'inactive',
+        apiKey: 'No configurada',
+        lastUsed: 'Nunca',
+        usage: {
+          requests: 0,
+          cost: 0
+        },
+        limits: {
+          daily: 2000,
+          monthly: 60000,
+          current: 0
+        },
+        icon: '🧠',
+        category: 'AI/LLM'
+      },
+      {
+        id: 'serper',
+        name: 'Serper',
+        description: 'API de búsqueda web alternativa',
+        status: 'active',
+        apiKey: 'sp_***...***ser123',
+        lastUsed: '2025-01-21T11:20:00Z',
+        usage: {
+          requests: 892,
+          cost: 4.46
+        },
+        limits: {
+          daily: 2500,
+          monthly: 75000,
+          current: 892
+        },
+        icon: '🔍',
+        category: 'Research'
+      },
+      {
+        id: 'google-analytics',
+        name: 'Google Analytics',
+        description: 'Métricas de tráfico y comportamiento',
+        status: 'active',
+        apiKey: 'ga_***...***ghi789',
+        lastUsed: '2025-01-21T08:00:00Z',
+        usage: {
+          requests: 1205,
+          cost: 0 // Gratis
+        },
+        limits: {
+          daily: -1, // Ilimitado
+          monthly: -1,
+          current: 1205
+        },
+        icon: '📊',
+        category: 'Analytics'
+      }
+    ]
+    
     try {
-      const response = await fetch('http://localhost:8081/api/v1/config/api-key-status')
-      const result = await response.json()
+      // Intentar cargar datos del backend
+      const response = await fetch('http://localhost:8080/api/v1/config/')
       
-      if (result.success) {
-        // Actualizar el estado con los datos reales
-        console.log('Datos de integraciones cargados:', result.data)
+      if (response.ok) {
+        const result = await response.json()
+        
+        if (result.success) {
+          // Transformar datos del backend al formato esperado por la UI
+          const transformedIntegrations = result.data.map((item: any) => {
+            const serviceData = serviceInfo[item.service as keyof typeof serviceInfo]
+            return {
+              id: item.service,
+              name: serviceData?.name || item.service,
+              description: serviceData?.description || 'Servicio de API',
+              status: item.is_active ? 'active' : 'inactive',
+              apiKey: item.masked_key || 'No configurada',
+              lastUsed: item.last_used || new Date().toISOString(),
+              usage: {
+                requests: item.usage?.requests || 0,
+                cost: item.usage?.cost || 0
+              },
+              limits: {
+                daily: 10000,
+                monthly: 300000,
+                current: item.usage?.requests || 0
+              },
+              icon: serviceData?.icon || '🔧',
+              category: serviceData?.category || 'Other'
+            }
+          })
+          
+          console.log('Datos del backend cargados:', transformedIntegrations)
+          setIntegrations(transformedIntegrations)
+          setMessage('Datos cargados desde el backend')
+        } else {
+          throw new Error('Backend response not successful')
+        }
+      } else {
+        throw new Error(`HTTP error! status: ${response.status}`)
       }
     } catch (err) {
-      console.error('Error cargando integraciones:', err)
+      console.error('❌ Error cargando desde backend:', err)
+      console.log('📦 Usando datos demo como fallback')
+      console.log('📊 Demo integrations count:', demoIntegrations.length)
+      
+      setIntegrations(demoIntegrations)
+      console.log('✅ Estado de integraciones actualizado con datos demo')
+      setMessage('Usando datos demo - Backend no disponible')
+    } finally {
+      console.log('🏁 Finalizando carga de integraciones')
+      setIsLoading(false)
     }
+    
+    // Log final para verificar el estado
+    setTimeout(() => {
+      console.log('🔍 Estado final de integraciones:', integrations.length)
+    }, 100)
   }
 
   const openApiKeyModal = (service: string) => {
@@ -331,9 +456,9 @@ export default function AdminAIIntegrationsPage() {
     try {
       setIsLoading(true)
       console.log('Guardando API key para:', editingService)
-      console.log('URL:', 'http://localhost:8081/api/v1/config/api-key')
+      console.log('URL:', 'http://localhost:8080/api/v1/config/api-key')
       
-      const response = await fetch('http://localhost:8081/api/v1/config/api-key', {
+      const response = await fetch('http://localhost:8080/api/v1/config/api-key', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -382,9 +507,9 @@ export default function AdminAIIntegrationsPage() {
     try {
       setIsLoading(true)
       console.log('Probando API key para:', editingService)
-      console.log('URL:', 'http://localhost:8081/api/v1/config/test-api-key')
+      console.log('URL:', 'http://localhost:8080/api/v1/config/test-api-key')
       
-      const response = await fetch('http://localhost:8081/api/v1/config/test-api-key', {
+      const response = await fetch('http://localhost:8080/api/v1/config/test-api-key', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -422,10 +547,7 @@ export default function AdminAIIntegrationsPage() {
     }
   }
 
-  // Cargar datos al montar el componente
-  useEffect(() => {
-    loadIntegrations()
-  }, [])
+  // useEffect duplicado eliminado - ya existe uno en línea 98
 
   return (
     <div className="space-y-6">
@@ -468,9 +590,9 @@ export default function AdminAIIntegrationsPage() {
             <span className="text-2xl">🔗</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">6</div>
             <p className="text-xs text-muted-foreground">
-              4 activas, 1 inactiva
+              5 activas, 1 inactiva
             </p>
           </CardContent>
         </Card>
@@ -481,7 +603,7 @@ export default function AdminAIIntegrationsPage() {
             <span className="text-2xl">💰</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(101.80)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(106.26)}</div>
             <p className="text-xs text-muted-foreground">
               +12.5% vs mes anterior
             </p>
@@ -517,7 +639,7 @@ export default function AdminAIIntegrationsPage() {
 
       {/* Lista de Integraciones */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {demoIntegrations.map((integration) => (
+        {integrations.map((integration: any) => (
           <Card key={integration.id} className="relative">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -800,4 +922,4 @@ export default function AdminAIIntegrationsPage() {
       )}
     </div>
   )
-} 
+}

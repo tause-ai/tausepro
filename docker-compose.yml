@@ -19,7 +19,7 @@ services:
   dashboard:
     build: ./apps/dashboard
     ports:
-      - "5173:5173"
+      - "5173:5174"
     environment:
       - VITE_API_URL=http://localhost:8080
       - VITE_PAYWALL_ENABLED=true
@@ -34,15 +34,20 @@ services:
     build: ./services/mcp-server
     ports:
       - "8080:8080"
+    env_file:
+      - ./services/mcp-server/config.env
     environment:
+      - PORT=8080
       - POCKETBASE_URL=http://pocketbase:8090
       - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://tausepro:tausepro_dev@postgres:5432/tausepro_analytics?sslmode=disable
       - PAYWALL_ENABLED=true
       - FREE_TIER_API_CALLS=100
       - FREE_TIER_AGENTS=3
     depends_on:
       - pocketbase
       - redis
+      - postgres
     labels:
       - "traefik.http.routers.api.rule=Host(`api.tause.localhost`)"
       
@@ -123,4 +128,4 @@ services:
       - "8000:80"
       - "8081:8080" # Traefik dashboard
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock 
+      - /var/run/docker.sock:/var/run/docker.sock

@@ -1,0 +1,808 @@
+// services/mcp-server/internal/services/analysis_v2.go
+package services
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+
+	"mcp-server/internal/cache"
+
+	"github.com/google/uuid"
+)
+
+// AnalysisV2Service servicio mejorado de análisis
+type AnalysisV2Service struct {
+	tavilyClient   *TavilyClient
+	promptsService *PromptsService
+	cache          *cache.RedisCache
+	db             *sql.DB
+}
+
+// CompanyInfo estructura mejorada con toda la información
+type CompanyInfo struct {
+	// Identificación básica
+	Name   string `json:"name"`  // Razón social
+	Brand  string `json:"brand"` // Marca comercial
+	URL    string `json:"url"`
+	Domain string `json:"domain"` // Dominio limpio
+
+	// Información empresarial
+	Description string `json:"description"`
+	Industry    string `json:"industry"`
+	SubIndustry string `json:"sub_industry"`
+	Size        string `json:"size"`
+	Founded     string `json:"founded"`
+
+	// Ubicación
+	Location LocationInfo `json:"location"`
+
+	// Digital
+	SocialMedia SocialMediaInfo `json:"social_media"`
+	Website     WebsiteAnalysis `json:"website"`
+
+	// Legal
+	LegalInfo LegalInfo `json:"legal_info"`
+
+	// Contacto
+	Contact ContactInfo `json:"contact"`
+
+	// Metadata
+	AnalyzedAt  time.Time `json:"analyzed_at"`
+	Confidence  float64   `json:"confidence"`   // 0-1 confianza en los datos
+	DataSources []string  `json:"data_sources"` // Fuentes utilizadas
+}
+
+// LocationInfo información detallada de ubicación
+type LocationInfo struct {
+	Address      string  `json:"address"`
+	Neighborhood string  `json:"neighborhood"`
+	City         string  `json:"city"`
+	Department   string  `json:"department"`
+	Country      string  `json:"country"`
+	PostalCode   string  `json:"postal_code"`
+	Coordinates  *Coords `json:"coordinates,omitempty"`
+}
+
+type Coords struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
+}
+
+// SocialMediaInfo redes sociales completas
+type SocialMediaInfo struct {
+	Facebook  *SocialProfile `json:"facebook,omitempty"`
+	Instagram *SocialProfile `json:"instagram,omitempty"`
+	LinkedIn  *SocialProfile `json:"linkedin,omitempty"`
+	Twitter   *SocialProfile `json:"twitter,omitempty"`
+	TikTok    *SocialProfile `json:"tiktok,omitempty"`
+	YouTube   *SocialProfile `json:"youtube,omitempty"`
+	WhatsApp  *WhatsAppInfo  `json:"whatsapp,omitempty"`
+}
+
+type SocialProfile struct {
+	URL            string   `json:"url"`
+	Username       string   `json:"username"`
+	Followers      string   `json:"followers"`
+	Following      string   `json:"following,omitempty"`
+	Posts          string   `json:"posts,omitempty"`
+	Verified       bool     `json:"verified"`
+	LastActivity   string   `json:"last_activity"`
+	ActivityLevel  string   `json:"activity_level"` // Alta, Media, Baja, Inactiva
+	ContentType    []string `json:"content_type"`
+	EngagementRate string   `json:"engagement_rate,omitempty"`
+}
+
+type WhatsAppInfo struct {
+	Number          string `json:"number"`
+	Formatted       string `json:"formatted"`
+	BusinessAccount bool   `json:"business_account"`
+	Verified        bool   `json:"verified"`
+}
+
+// WebsiteAnalysis análisis del sitio web
+type WebsiteAnalysis struct {
+	Status         string   `json:"status"`     // Online, Offline, Redirect
+	Technology     []string `json:"technology"` // WordPress, Shopify, etc
+	SSL            bool     `json:"ssl"`
+	Mobile         bool     `json:"mobile_responsive"`
+	LoadSpeed      string   `json:"load_speed"` // Rápido, Normal, Lento
+	LastUpdated    string   `json:"last_updated"`
+	Languages      []string `json:"languages"`
+	Ecommerce      bool     `json:"ecommerce"`
+	PaymentMethods []string `json:"payment_methods,omitempty"`
+}
+
+// LegalInfo información legal
+type LegalInfo struct {
+	NIT             string `json:"nit"`
+	RUT             string `json:"rut,omitempty"`
+	LegalForm       string `json:"legal_form"` // S.A.S, LTDA, etc
+	Status          string `json:"status"`     // Activa, Inactiva, Liquidación
+	RegistrationNum string `json:"registration_num"`
+	Chamber         string `json:"chamber"` // Cámara de Comercio
+	RegisteredDate  string `json:"registered_date"`
+}
+
+// ContactInfo información de contacto
+type ContactInfo struct {
+	Phones       []PhoneInfo `json:"phones"`
+	Emails       []EmailInfo `json:"emails"`
+	WorkingHours string      `json:"working_hours"`
+}
+
+type PhoneInfo struct {
+	Number    string `json:"number"`
+	Type      string `json:"type"` // Principal, WhatsApp, Ventas, Soporte
+	Extension string `json:"extension,omitempty"`
+}
+
+type EmailInfo struct {
+	Email string `json:"email"`
+	Type  string `json:"type"` // General, Ventas, Soporte, Info
+}
+
+// IndustryAnalysis análisis de industria
+type IndustryAnalysis struct {
+	Industry      string    `json:"industry"`
+	City          string    `json:"city"`
+	MarketSize    string    `json:"market_size"`
+	GrowthRate    string    `json:"growth_rate"`
+	Trends        []string  `json:"trends"`
+	Challenges    []string  `json:"challenges"`
+	Opportunities []string  `json:"opportunities"`
+	Regulations   []string  `json:"regulations"`
+	Technologies  []string  `json:"technologies"`
+	Seasonality   string    `json:"seasonality"`
+	AnalyzedAt    time.Time `json:"analyzed_at"`
+	DataSources   []string  `json:"data_sources"`
+}
+
+// CompetitorInfo información de competidor
+type CompetitorInfo struct {
+	Name           string            `json:"name"`
+	Brand          string            `json:"brand"`
+	Type           string            `json:"type"` // Directo, Indirecto, Sustituto
+	Website        string            `json:"website"`
+	Location       string            `json:"location"`
+	Strengths      []string          `json:"strengths"`
+	Weaknesses     []string          `json:"weaknesses"`
+	UniqueValue    string            `json:"unique_value"`
+	PriceRange     string            `json:"price_range"`
+	MarketShare    string            `json:"market_share"`
+	YearsInMarket  string            `json:"years_in_market"`
+	SocialPresence map[string]string `json:"social_presence"`
+}
+
+// Opportunity oportunidad de mejora
+type Opportunity struct {
+	ID                 string   `json:"id"`
+	Category           string   `json:"category"`
+	Title              string   `json:"title"`
+	Description        string   `json:"description"`
+	Impact             string   `json:"impact"` // Alto, Medio, Bajo
+	Effort             string   `json:"effort"` // Alto, Medio, Bajo
+	ROIMonths          string   `json:"roi_months"`
+	Investment         string   `json:"investment"`
+	ImplementationTime string   `json:"implementation_time"`
+	Priority           int      `json:"priority"`
+	Requirements       []string `json:"requirements"`
+	SuccessMetrics     []string `json:"success_metrics"`
+	LocalProviders     []string `json:"local_providers"`
+}
+
+// NewAnalysisV2Service crea el servicio mejorado
+func NewAnalysisV2Service(tavilyClient *tavily.Client, promptsService *PromptsService, cache *cache.RedisCache, db *sql.DB) *AnalysisV2Service {
+	return &AnalysisV2Service{
+		tavilyClient:   tavilyClient,
+		promptsService: promptsService,
+		cache:          cache,
+		db:             db,
+	}
+}
+
+// AnalyzeCompany análisis completo de empresa con validación mejorada
+func (s *AnalysisV2Service) AnalyzeCompany(ctx context.Context, input string) (*CompanyInfo, error) {
+	// Normalizar input
+	cleanURL := s.normalizeURL(input)
+	domain := s.extractDomain(cleanURL)
+
+	// Check cache primero
+	cacheKey := fmt.Sprintf("company_analysis:%s", domain)
+	var cachedInfo CompanyInfo
+	if found, _ := s.cache.GetCachedResult(cacheKey, &cachedInfo); found {
+		return &cachedInfo, nil
+	}
+
+	// Ejecutar análisis por pasos
+	info := &CompanyInfo{
+		URL:        cleanURL,
+		Domain:     domain,
+		AnalyzedAt: time.Now(),
+		Location: LocationInfo{
+			Country: "Colombia",
+		},
+	}
+
+	// Paso 1: Identificación de empresa
+	if err := s.identifyCompany(ctx, info); err != nil {
+		return nil, fmt.Errorf("company identification failed: %w", err)
+	}
+
+	// Paso 2: Validación cruzada (evitar confusión)
+	if err := s.validateCompanyIdentity(ctx, info); err != nil {
+		return nil, fmt.Errorf("company validation failed: %w", err)
+	}
+
+	// Paso 3: Redes sociales
+	if err := s.analyzeSocialMedia(ctx, info); err != nil {
+		// No es crítico, continuar
+		info.DataSources = append(info.DataSources, "social_media_partial")
+	}
+
+	// Paso 4: Análisis del sitio web
+	if err := s.analyzeWebsite(ctx, info); err != nil {
+		// No es crítico, continuar
+		info.DataSources = append(info.DataSources, "website_partial")
+	}
+
+	// Paso 5: Información legal
+	if err := s.analyzeLegalInfo(ctx, info); err != nil {
+		// No es crítico, continuar
+		info.DataSources = append(info.DataSources, "legal_partial")
+	}
+
+	// Calcular confianza
+	info.Confidence = s.calculateConfidence(info)
+
+	// Cache resultado
+	s.cache.CacheResult(cacheKey, info, 24*time.Hour)
+
+	// Guardar en DB para análisis histórico
+	go s.saveAnalysisResult(info)
+
+	return info, nil
+}
+
+// identifyCompany identifica la empresa usando el prompt configurable
+func (s *AnalysisV2Service) identifyCompany(ctx context.Context, info *CompanyInfo) error {
+	// Obtener prompt de identificación
+	prompt, err := s.promptsService.ExecutePrompt(ctx, "company_identification", map[string]string{
+		"url": info.URL,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Buscar con Tavily
+	results, err := s.tavilyClient.Search(ctx, prompt, &tavily.SearchOptions{
+		SearchDepth: "advanced",
+		MaxResults:  10,
+		Include:     []string{"answer", "raw_content"},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Parsear respuesta de Tavily
+	if results.Answer != "" {
+		var companyData map[string]interface{}
+		if err := json.Unmarshal([]byte(results.Answer), &companyData); err == nil {
+			s.mapCompanyData(companyData, info)
+		}
+	}
+
+	// Analizar raw content para más detalles
+	for _, result := range results.Results {
+		if strings.Contains(result.URL, info.Domain) {
+			// Es contenido del propio sitio
+			s.extractFromContent(result.Content, info)
+			info.DataSources = append(info.DataSources, "website")
+		} else if strings.Contains(result.URL, "linkedin.com") {
+			info.DataSources = append(info.DataSources, "linkedin")
+		} else if strings.Contains(result.URL, "camaracomercio") {
+			info.DataSources = append(info.DataSources, "camara_comercio")
+		}
+	}
+
+	return nil
+}
+
+// validateCompanyIdentity valida que la información corresponda a la empresa correcta
+func (s *AnalysisV2Service) validateCompanyIdentity(ctx context.Context, info *CompanyInfo) error {
+	// Validaciones cruzadas
+	validations := []struct {
+		name   string
+		check  func() bool
+		weight float64
+	}{
+		{
+			name: "domain_match",
+			check: func() bool {
+				return strings.Contains(strings.ToLower(info.Name), strings.Split(info.Domain, ".")[0])
+			},
+			weight: 0.3,
+		},
+		{
+			name: "nit_format",
+			check: func() bool {
+				return s.validateNIT(info.LegalInfo.NIT)
+			},
+			weight: 0.2,
+		},
+		{
+			name: "location_colombia",
+			check: func() bool {
+				return info.Location.Country == "Colombia" && info.Location.City != ""
+			},
+			weight: 0.2,
+		},
+		{
+			name: "consistent_data",
+			check: func() bool {
+				return info.Name != "" && info.Industry != "" && info.Location.City != ""
+			},
+			weight: 0.3,
+		},
+	}
+
+	totalScore := 0.0
+	for _, v := range validations {
+		if v.check() {
+			totalScore += v.weight
+		}
+	}
+
+	if totalScore < 0.5 {
+		return fmt.Errorf("low confidence in company identification: %.2f", totalScore)
+	}
+
+	return nil
+}
+
+// analyzeSocialMedia analiza redes sociales usando prompt específico
+func (s *AnalysisV2Service) analyzeSocialMedia(ctx context.Context, info *CompanyInfo) error {
+	prompt, err := s.promptsService.ExecutePrompt(ctx, "social_media_analysis", map[string]string{
+		"company_name": info.Name,
+		"url":          info.URL,
+	})
+	if err != nil {
+		return err
+	}
+
+	results, err := s.tavilyClient.Search(ctx, prompt, &tavily.SearchOptions{
+		SearchDepth: "advanced",
+		MaxResults:  15,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Parsear resultados de redes sociales
+	info.SocialMedia = SocialMediaInfo{}
+
+	for _, result := range results.Results {
+		s.extractSocialProfile(result, info)
+	}
+
+	return nil
+}
+
+// extractSocialProfile extrae perfil de red social
+func (s *AnalysisV2Service) extractSocialProfile(result tavily.SearchResult, info *CompanyInfo) {
+	urlLower := strings.ToLower(result.URL)
+
+	switch {
+	case strings.Contains(urlLower, "facebook.com"):
+		if info.SocialMedia.Facebook == nil {
+			info.SocialMedia.Facebook = s.parseFacebookProfile(result)
+		}
+
+	case strings.Contains(urlLower, "instagram.com"):
+		if info.SocialMedia.Instagram == nil {
+			info.SocialMedia.Instagram = s.parseInstagramProfile(result)
+		}
+
+	case strings.Contains(urlLower, "linkedin.com/company"):
+		if info.SocialMedia.LinkedIn == nil {
+			info.SocialMedia.LinkedIn = s.parseLinkedInProfile(result)
+		}
+
+	case strings.Contains(urlLower, "twitter.com") || strings.Contains(urlLower, "x.com"):
+		if info.SocialMedia.Twitter == nil {
+			info.SocialMedia.Twitter = s.parseTwitterProfile(result)
+		}
+
+	case strings.Contains(urlLower, "tiktok.com"):
+		if info.SocialMedia.TikTok == nil {
+			info.SocialMedia.TikTok = s.parseTikTokProfile(result)
+		}
+
+	case strings.Contains(urlLower, "youtube.com"):
+		if info.SocialMedia.YouTube == nil {
+			info.SocialMedia.YouTube = s.parseYouTubeProfile(result)
+		}
+	}
+}
+
+// Funciones de parsing para cada red social
+func (s *AnalysisV2Service) parseFacebookProfile(result tavily.SearchResult) *SocialProfile {
+	profile := &SocialProfile{
+		URL: result.URL,
+	}
+
+	// Extraer username de URL
+	if matches := regexp.MustCompile(`facebook\.com/([^/?]+)`).FindStringSubmatch(result.URL); len(matches) > 1 {
+		profile.Username = matches[1]
+	}
+
+	// Buscar followers en content
+	if matches := regexp.MustCompile(`(\d+[KMk]?)\s*(seguidores|followers|likes)`).FindStringSubmatch(result.Content); len(matches) > 1 {
+		profile.Followers = matches[1]
+	}
+
+	return profile
+}
+
+func (s *AnalysisV2Service) parseInstagramProfile(result tavily.SearchResult) *SocialProfile {
+	profile := &SocialProfile{
+		URL: result.URL,
+	}
+
+	// Extraer username
+	if matches := regexp.MustCompile(`instagram\.com/([^/?]+)`).FindStringSubmatch(result.URL); len(matches) > 1 {
+		profile.Username = "@" + matches[1]
+	}
+
+	return profile
+}
+
+func (s *AnalysisV2Service) parseLinkedInProfile(result tavily.SearchResult) *SocialProfile {
+	profile := &SocialProfile{
+		URL: result.URL,
+	}
+
+	// Extraer nombre de empresa de URL
+	if matches := regexp.MustCompile(`linkedin\.com/company/([^/?]+)`).FindStringSubmatch(result.URL); len(matches) > 1 {
+		profile.Username = matches[1]
+	}
+
+	return profile
+}
+
+func (s *AnalysisV2Service) parseTwitterProfile(result tavily.SearchResult) *SocialProfile {
+	profile := &SocialProfile{
+		URL: result.URL,
+	}
+
+	// Extraer username
+	if matches := regexp.MustCompile(`(?:twitter\.com|x\.com)/([^/?]+)`).FindStringSubmatch(result.URL); len(matches) > 1 {
+		profile.Username = "@" + matches[1]
+	}
+
+	return profile
+}
+
+func (s *AnalysisV2Service) parseTikTokProfile(result tavily.SearchResult) *SocialProfile {
+	profile := &SocialProfile{
+		URL: result.URL,
+	}
+
+	// Extraer username
+	if matches := regexp.MustCompile(`tiktok\.com/@([^/?]+)`).FindStringSubmatch(result.URL); len(matches) > 1 {
+		profile.Username = "@" + matches[1]
+	}
+
+	return profile
+}
+
+func (s *AnalysisV2Service) parseYouTubeProfile(result tavily.SearchResult) *SocialProfile {
+	profile := &SocialProfile{
+		URL: result.URL,
+	}
+
+	// Extraer nombre del canal
+	if matches := regexp.MustCompile(`youtube\.com/(?:channel/|c/|@)?([^/?]+)`).FindStringSubmatch(result.URL); len(matches) > 1 {
+		profile.Username = matches[1]
+	}
+
+	return profile
+}
+
+// analyzeWebsite analiza el sitio web
+func (s *AnalysisV2Service) analyzeWebsite(ctx context.Context, info *CompanyInfo) error {
+	// Por ahora análisis básico
+	info.Website = WebsiteAnalysis{
+		Status: "Online", // Asumimos que está online si llegamos aquí
+		SSL:    true,     // Asumimos HTTPS
+	}
+
+	return nil
+}
+
+// analyzeLegalInfo analiza información legal
+func (s *AnalysisV2Service) analyzeLegalInfo(ctx context.Context, info *CompanyInfo) error {
+	// Por ahora información básica
+	info.LegalInfo = LegalInfo{
+		Status: "Activa", // Asumimos activa
+	}
+
+	return nil
+}
+
+// mapCompanyData mapea datos de la respuesta de Tavily
+func (s *AnalysisV2Service) mapCompanyData(data map[string]interface{}, info *CompanyInfo) {
+	if name, ok := data["name"].(string); ok {
+		info.Name = name
+	}
+	if brand, ok := data["brand"].(string); ok {
+		info.Brand = brand
+	}
+	if description, ok := data["description"].(string); ok {
+		info.Description = description
+	}
+	if industry, ok := data["industry"].(string); ok {
+		info.Industry = industry
+	}
+	if founded, ok := data["founded"].(string); ok {
+		info.Founded = founded
+	}
+	if size, ok := data["size"].(string); ok {
+		info.Size = size
+	}
+
+	// Ubicación
+	if location, ok := data["location"].(map[string]interface{}); ok {
+		if city, ok := location["city"].(string); ok {
+			info.Location.City = city
+		}
+		if address, ok := location["address"].(string); ok {
+			info.Location.Address = address
+		}
+	}
+
+	// Información legal
+	if legal, ok := data["legal"].(map[string]interface{}); ok {
+		if nit, ok := legal["nit"].(string); ok {
+			info.LegalInfo.NIT = nit
+		}
+		if form, ok := legal["form"].(string); ok {
+			info.LegalInfo.LegalForm = form
+		}
+	}
+}
+
+// extractFromContent extrae información del contenido
+func (s *AnalysisV2Service) extractFromContent(content string, info *CompanyInfo) {
+	// Extraer NIT
+	if nitMatch := regexp.MustCompile(`NIT[:\s]*(\d{9,10})`).FindStringSubmatch(content); len(nitMatch) > 1 {
+		info.LegalInfo.NIT = nitMatch[1]
+	}
+
+	// Extraer teléfonos
+	phoneMatches := regexp.MustCompile(`(\+57\s?\d{1,3}\s?\d{3}\s?\d{4})`).FindAllString(content, -1)
+	for _, phone := range phoneMatches {
+		info.Contact.Phones = append(info.Contact.Phones, PhoneInfo{
+			Number: phone,
+			Type:   "Principal",
+		})
+	}
+
+	// Extraer emails
+	emailMatches := regexp.MustCompile(`([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})`).FindAllString(content, -1)
+	for _, email := range emailMatches {
+		info.Contact.Emails = append(info.Contact.Emails, EmailInfo{
+			Email: email,
+			Type:  "General",
+		})
+	}
+}
+
+// Funciones auxiliares
+
+func (s *AnalysisV2Service) normalizeURL(input string) string {
+	input = strings.TrimSpace(input)
+
+	// Agregar protocolo si no existe
+	if !strings.HasPrefix(input, "http://") && !strings.HasPrefix(input, "https://") {
+		input = "https://" + input
+	}
+
+	// Parsear URL
+	u, err := url.Parse(input)
+	if err != nil {
+		return input
+	}
+
+	// Reconstruir URL limpia
+	return u.Scheme + "://" + u.Host + u.Path
+}
+
+func (s *AnalysisV2Service) extractDomain(urlStr string) string {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return urlStr
+	}
+
+	domain := u.Hostname()
+	domain = strings.TrimPrefix(domain, "www.")
+
+	return domain
+}
+
+func (s *AnalysisV2Service) validateNIT(nit string) bool {
+	// Validación básica de NIT colombiano
+	nit = strings.ReplaceAll(nit, "-", "")
+	nit = strings.ReplaceAll(nit, ".", "")
+
+	if len(nit) < 9 || len(nit) > 10 {
+		return false
+	}
+
+	// Validar que sean solo números
+	for _, c := range nit {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (s *AnalysisV2Service) calculateConfidence(info *CompanyInfo) float64 {
+	score := 0.0
+	factors := 0
+
+	// Factores de confianza
+	checks := []struct {
+		condition bool
+		weight    float64
+	}{
+		{info.Name != "", 0.15},
+		{info.LegalInfo.NIT != "", 0.15},
+		{info.Location.City != "", 0.10},
+		{info.Industry != "", 0.10},
+		{info.Description != "", 0.10},
+		{len(info.DataSources) >= 3, 0.10},
+		{info.SocialMedia.Facebook != nil || info.SocialMedia.Instagram != nil, 0.10},
+		{info.Contact.Phones != nil && len(info.Contact.Phones) > 0, 0.10},
+		{info.Website.Status == "Online", 0.10},
+	}
+
+	for _, check := range checks {
+		if check.condition {
+			score += check.weight
+			factors++
+		}
+	}
+
+	return score
+}
+
+func (s *AnalysisV2Service) saveAnalysisResult(info *CompanyInfo) error {
+	query := `
+        INSERT INTO company_analyses 
+        (id, domain, company_name, data, confidence, analyzed_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (domain) DO UPDATE
+        SET data = $4, confidence = $5, analyzed_at = $6
+    `
+
+	dataJSON, _ := json.Marshal(info)
+
+	_, err := s.db.Exec(query,
+		uuid.New().String(),
+		info.Domain,
+		info.Name,
+		dataJSON,
+		info.Confidence,
+		info.AnalyzedAt,
+	)
+
+	return err
+}
+
+// AnalyzeIndustry análisis de industria
+func (s *AnalysisV2Service) AnalyzeIndustry(ctx context.Context, industry, city string) (*IndustryAnalysis, error) {
+	prompt, err := s.promptsService.ExecutePrompt(ctx, "industry_analysis", map[string]string{
+		"industry": industry,
+		"city":     city,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := s.tavilyClient.Search(ctx, prompt, &tavily.SearchOptions{
+		SearchDepth: "advanced",
+		MaxResults:  20,
+	})
+
+	// Procesar resultados...
+	analysis := &IndustryAnalysis{
+		Industry:   industry,
+		City:       city,
+		AnalyzedAt: time.Now(),
+	}
+
+	return analysis, nil
+}
+
+// AnalyzeCompetitors análisis de competidores
+func (s *AnalysisV2Service) AnalyzeCompetitors(ctx context.Context, companyName, city, industry string) ([]*CompetitorInfo, error) {
+	prompt, err := s.promptsService.ExecutePrompt(ctx, "competitor_analysis", map[string]string{
+		"company_name": companyName,
+		"city":         city,
+		"industry":     industry,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := s.tavilyClient.Search(ctx, prompt, &tavily.SearchOptions{
+		SearchDepth: "advanced",
+		MaxResults:  25,
+	})
+
+	// Procesar competidores...
+	var competitors []*CompetitorInfo
+
+	return competitors, nil
+}
+
+// AnalyzeOpportunities análisis de oportunidades
+func (s *AnalysisV2Service) AnalyzeOpportunities(ctx context.Context, company *CompanyInfo, score int) ([]*Opportunity, error) {
+	prompt, err := s.promptsService.ExecutePrompt(ctx, "opportunities_analysis", map[string]string{
+		"company_name":         company.Name,
+		"industry":             company.Industry,
+		"city":                 company.Location.City,
+		"company_size":         company.Size,
+		"digitalization_score": fmt.Sprintf("%d", score),
+		"digital_presence":     s.getDigitalPresenceLevel(company),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	results, err := s.tavilyClient.Search(ctx, prompt, &tavily.SearchOptions{
+		SearchDepth: "advanced",
+		MaxResults:  15,
+	})
+
+	// Procesar oportunidades...
+	var opportunities []*Opportunity
+
+	return opportunities, nil
+}
+
+func (s *AnalysisV2Service) getDigitalPresenceLevel(company *CompanyInfo) string {
+	score := 0
+
+	if company.Website.Status == "Online" {
+		score += 3
+	}
+	if company.SocialMedia.Facebook != nil {
+		score++
+	}
+	if company.SocialMedia.Instagram != nil {
+		score++
+	}
+	if company.SocialMedia.WhatsApp != nil {
+		score += 2
+	}
+
+	switch {
+	case score >= 6:
+		return "Avanzada"
+	case score >= 4:
+		return "Intermedia"
+	case score >= 2:
+		return "Básica"
+	default:
+		return "Mínima"
+	}
+}

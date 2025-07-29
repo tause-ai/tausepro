@@ -1,0 +1,8 @@
+node_modules
+apps/dashboard/node_modules
+apps/landing/node_modules
+*.log
+*.md
+test/
+tests/
+coverage/ 
