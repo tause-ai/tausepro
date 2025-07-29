@@ -90,7 +90,7 @@ func (r *RedisCache) CheckRateLimit(config RateLimitConfig) (allowed bool, remai
 func (r *RedisCache) AnalysisRateLimit(ip string) (bool, error) {
 	config := RateLimitConfig{
 		Key:        ip,
-		Limit:      3, // 3 análisis
+		Limit:      50, // Aumentado temporalmente para testing
 		Window:     time.Hour,
 		Identifier: "analysis",
 	}

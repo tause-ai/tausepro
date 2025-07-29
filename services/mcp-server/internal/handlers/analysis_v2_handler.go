@@ -311,6 +311,9 @@ func (h *AnalysisV2Handler) GetAnalysisResult(c *fiber.Ctx) error {
 
 // RateLimitMiddleware middleware específico para análisis
 func (h *AnalysisV2Handler) RateLimitMiddleware(c *fiber.Ctx) error {
+	// TEMPORALMENTE DESHABILITADO PARA TESTING
+	return c.Next()
+	
 	// Si no hay cache disponible, permitir acceso sin rate limiting
 	if h.cache == nil {
 		return c.Next()
@@ -321,13 +324,13 @@ func (h *AnalysisV2Handler) RateLimitMiddleware(c *fiber.Ctx) error {
 	// Verificar límite por IP
 	allowed, remaining, resetAt, err := h.cache.CheckRateLimit(cache.RateLimitConfig{
 		Key:        ip,
-		Limit:      3,
+		Limit:      50, // Aumentado temporalmente para testing
 		Window:     time.Hour,
 		Identifier: "analysis_v2",
 	})
 
 	// Agregar headers de rate limit
-	c.Set("X-RateLimit-Limit", "3")
+	c.Set("X-RateLimit-Limit", "50")
 	c.Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
 	c.Set("X-RateLimit-Reset", fmt.Sprintf("%d", resetAt.Unix()))
 
@@ -335,7 +338,7 @@ func (h *AnalysisV2Handler) RateLimitMiddleware(c *fiber.Ctx) error {
 		return c.Status(429).JSON(fiber.Map{
 			"success":  false,
 			"error":    "Límite de análisis excedido",
-			"message":  "Has alcanzado el límite de 3 análisis por hora. Intenta más tarde.",
+			"message":  "Has alcanzado el límite de 50 análisis por hora. Intenta más tarde.",
 			"reset_at": resetAt.Format(time.RFC3339),
 		})
 	}

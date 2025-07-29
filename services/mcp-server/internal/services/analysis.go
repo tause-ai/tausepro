@@ -214,6 +214,7 @@ func (s *AnalysisService) AnalyzeCompany(ctx context.Context, url string) (*Mark
 	analysis.DigitalizationScore = digitalizationScore
 
 	log.Printf("Análisis completado para: %s", companyInfo.Name)
+	log.Printf("Scoring calculado: Total=%.1f, Level=%s", digitalizationScore.Total, digitalizationScore.Level)
 
 	// Guardar en cache
 	if s.cache != nil {

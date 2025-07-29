@@ -9,7 +9,7 @@ import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 
 // Dashboard pages (Clientes PYMEs)
-import { DashboardPage } from '@/pages/dashboard/DashboardPage'
+import DashboardPage from '@/pages/dashboard/DashboardPage'
 import AnalyticsPage from '@/pages/analytics/AnalyticsPage'
 import AgentsPage from '@/pages/agents/AgentsPage'
 import AgentChatPage from '@/pages/agents/AgentChatPage'
