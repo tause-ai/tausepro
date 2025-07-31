@@ -12,7 +12,7 @@ import type {
 
 // Instancia de axios para el admin API
 const adminApiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8082/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -63,7 +63,7 @@ export const adminApi = {
       if (filters?.industry) params.append('industry', filters.industry)
 
       const response = await adminApiClient.get(`/admin/tenants?${params.toString()}`)
-      return response.data
+      return response.data.data || response.data
     },
 
     // Obtener tenant específico
@@ -228,8 +228,8 @@ export const adminApi = {
 
     // Obtener métricas del sistema
     getMetrics: async (): Promise<SystemMetrics> => {
-      const response = await adminApiClient.get('/admin/system/metrics')
-      return response.data
+      const response = await adminApiClient.get('/admin/metrics')
+      return response.data.data || response.data
     },
 
     // Obtener logs del sistema
@@ -253,8 +253,8 @@ export const adminApi = {
       if (filters?.endDate) params.append('endDate', filters.endDate)
       if (filters?.limit) params.append('limit', filters.limit.toString())
 
-      const response = await adminApiClient.get(`/admin/system/logs?${params.toString()}`)
-      return response.data
+      const response = await adminApiClient.get(`/admin/logs?${params.toString()}`)
+      return response.data.data || response.data
     },
 
     // Ejecutar comando del sistema

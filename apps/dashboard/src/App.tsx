@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, Suspense } from 'react'
-import { useAuth } from './hooks/useAuth'
+import { useAuthStore } from './store/auth'
 
 // Layout components
 import DashboardLayout from './components/layout/DashboardLayout'
@@ -41,11 +41,28 @@ function LoadingPage() {
   )
 }
 
+// Debug component to test if the app is loading
+function DebugPage() {
+  console.log('🔍 DebugPage: Componente de debug cargado')
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center space-y-4">
+        <h1 className="text-2xl font-bold">Debug: TausePro App</h1>
+        <p className="text-muted-foreground">La aplicación está cargando correctamente</p>
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+      </div>
+    </div>
+  )
+}
+
 // Protected route wrapper for regular users (temporalmente deshabilitado)
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  console.log('🔍 ProtectedRoute: Iniciando')
+  const { user, isLoading } = useAuthStore()
+  console.log('🔍 ProtectedRoute: Estado auth:', { user: user?.id, isLoading })
   
-  if (loading) {
+  if (isLoading) {
+    console.log('🔍 ProtectedRoute: Mostrando loading')
     return <LoadingPage />
   }
   
@@ -70,67 +87,86 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Protected route wrapper for admin routes (no redirect loop)
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  console.log('🔍 AdminProtectedRoute: Iniciando')
+  const { user, isLoading } = useAuthStore()
+  console.log('🔍 AdminProtectedRoute: Estado auth:', { user: user?.id, isLoading })
   
-  if (loading) {
+  if (isLoading) {
+    console.log('🔍 AdminProtectedRoute: Mostrando loading')
     return <LoadingPage />
   }
   
   if (!user) {
+    console.log('🔍 AdminProtectedRoute: No hay usuario, redirigiendo a login')
     return <Navigate to="/admin/login" replace />
   }
 
   // Verificar que sea super admin
   if (user.role !== 'super_admin') {
+    console.log('🔍 AdminProtectedRoute: Usuario no es super_admin, redirigiendo')
     return <Navigate to="/admin/login" replace />
   }
   
+  console.log('🔍 AdminProtectedRoute: Acceso permitido')
   return <>{children}</>
 }
 
 // Public route wrapper (redirect to dashboard if authenticated)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  console.log('🔍 PublicRoute: Iniciando')
+  const { user, isLoading } = useAuthStore()
+  console.log('🔍 PublicRoute: Estado auth:', { user: user?.id, isLoading })
   
-  if (loading) {
+  if (isLoading) {
+    console.log('🔍 PublicRoute: Mostrando loading')
     return <LoadingPage />
   }
   
   if (user) {
     // Si es super admin, ir al admin dashboard, sino al dashboard normal
     if (user.role === 'super_admin') {
+      console.log('🔍 PublicRoute: Usuario es super_admin, redirigiendo a admin dashboard')
       return <Navigate to="/admin/dashboard" replace />
     } else {
+      console.log('🔍 PublicRoute: Usuario normal, redirigiendo a dashboard')
       return <Navigate to="/" replace />
     }
   }
   
+  console.log('🔍 PublicRoute: Mostrando contenido público')
   return <>{children}</>
 }
 
 function App() {
-  const { getCurrentUser } = useAuth()
+  console.log('🔍 App: Componente App iniciando')
+  const { refreshUser } = useAuthStore()
   
   // Initialize app data
   useEffect(() => {
+    console.log('🔍 App: useEffect ejecutándose')
     try {
-      getCurrentUser()
+      refreshUser()
+      console.log('🔍 App: refreshUser llamado exitosamente')
     } catch (error) {
-      console.error('Error initializing app:', error)
+      console.error('🔍 App: Error initializing app:', error)
     }
-  }, [getCurrentUser])
+  }, [refreshUser])
   
+  console.log('🔍 App: Renderizando App')
   return (
     <Router>
       <Suspense fallback={<LoadingPage />}>
         <div className="min-h-screen bg-background font-sans antialiased">
           <Routes>
+            {/* Debug route */}
+            <Route path="/debug" element={<DebugPage />} />
+            
             {/* Public routes */}
             <Route 
               path="/admin/login" 
               element={
                 <PublicRoute>
-                  <LoginPage />
+                  <AdminLoginPage />
                 </PublicRoute>
               } 
             />

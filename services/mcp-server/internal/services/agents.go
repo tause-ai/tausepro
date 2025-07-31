@@ -29,6 +29,11 @@ func NewAgentService(db *sql.DB, cache *cache.RedisCache) *AgentService {
 
 // CreateAgent crea un nuevo agente
 func (s *AgentService) CreateAgent(ctx context.Context, agent *models.Agent) error {
+	// Verificar si la base de datos está disponible
+	if s.db == nil {
+		return fmt.Errorf("database not available")
+	}
+
 	agent.ID = uuid.New().String()
 	agent.CreatedAt = time.Now()
 	agent.UpdatedAt = time.Now()
@@ -75,6 +80,11 @@ func (s *AgentService) CreateAgent(ctx context.Context, agent *models.Agent) err
 
 // GetAgent obtiene un agente por ID
 func (s *AgentService) GetAgent(ctx context.Context, id string) (*models.Agent, error) {
+	// Verificar si la base de datos está disponible
+	if s.db == nil {
+		return nil, fmt.Errorf("database not available")
+	}
+
 	// Intentar obtener del cache primero
 	cacheKey := fmt.Sprintf("agent:%s", id)
 	var cachedAgent models.Agent
@@ -126,6 +136,11 @@ func (s *AgentService) GetAgent(ctx context.Context, id string) (*models.Agent, 
 
 // ListAgents lista todos los agentes de un tenant
 func (s *AgentService) ListAgents(ctx context.Context, tenantID string) ([]*models.Agent, error) {
+	// Verificar si la base de datos está disponible
+	if s.db == nil {
+		return []*models.Agent{}, nil
+	}
+
 	query := `
 		SELECT id, name, personality, knowledge, context, skills,
 		       is_active, tenant_id, created_at, updated_at, metadata
@@ -451,6 +466,11 @@ func (s *AgentService) GetConversationHistory(ctx context.Context, agentID, user
 
 // InitializeDefaultAgents inicializa agentes por defecto
 func (s *AgentService) InitializeDefaultAgents(ctx context.Context, tenantID string) error {
+	// Verificar si la base de datos está disponible
+	if s.db == nil {
+		return fmt.Errorf("database not available")
+	}
+
 	// Crear agente ALI por defecto
 	aliPersonality := &models.Personality{
 		Name:       "ALI",

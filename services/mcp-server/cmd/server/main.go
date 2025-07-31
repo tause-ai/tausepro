@@ -7,6 +7,7 @@ import (
 	"mcp-server/internal/handlers"
 	"mcp-server/internal/services"
 	"os"
+	"strings"
 
 	"net/http"
 
@@ -42,11 +43,18 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Servir archivos estáticos del Dashboard
-	app.Use("/admin", filesystem.New(filesystem.Config{
-		Root:   http.Dir("./dashboard"),
-		Browse: true,
-	}))
+	// Servir archivos estáticos del Dashboard (solo rutas específicas, NO /api)
+	app.Use("/admin", func(c *fiber.Ctx) error {
+		// Si la ruta empieza con /api, continuar al siguiente middleware
+		if strings.HasPrefix(c.Path(), "/api") {
+			return c.Next()
+		}
+		// Si no, servir archivos estáticos
+		return filesystem.New(filesystem.Config{
+			Root:   http.Dir("./dashboard"),
+			Browse: true,
+		})(c)
+	})
 
 	// Servir archivos estáticos del Landing
 	app.Use("/", filesystem.New(filesystem.Config{
@@ -132,7 +140,18 @@ func main() {
 	log.Printf("🔧 Creando AgentsHandler...")
 	agentsHandler := handlers.NewAgentsHandler(agentService)
 	log.Printf("✅ AgentsHandler inicializado")
-	log.Printf("✅ Handlers inicializados: config, analysis, reports, search, prompts, agents")
+
+	// Inicializar AdminHandler (sin TenantManager por ahora)
+	log.Printf("🔧 Creando AdminHandler...")
+	adminHandler := handlers.NewAdminHandler()
+	log.Printf("✅ AdminHandler inicializado")
+
+	// Registrar rutas del admin ANTES de archivos estáticos
+	log.Printf("🔧 Registrando rutas del AdminHandler...")
+	adminHandler.RegisterAdminRoutes(app)
+	log.Printf("✅ Rutas del Super Admin registradas")
+
+	log.Printf("✅ Handlers inicializados: config, analysis, reports, search, prompts, agents, admin")
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {

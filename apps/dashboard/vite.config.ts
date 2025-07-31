@@ -16,7 +16,7 @@ export default defineConfig({
     proxy: {
       // Proxy para el MCP Server local
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8082',
         changeOrigin: true,
       },
     },
