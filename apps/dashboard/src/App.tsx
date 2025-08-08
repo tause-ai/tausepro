@@ -5,7 +5,6 @@ import { useAuthStore } from './store/auth'
 // Layout components
 import DashboardLayout from './components/layout/DashboardLayout'
 import AdminLayout from './components/layout/AdminLayout'
-import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 
 // Dashboard pages (Clientes PYMEs)
@@ -19,6 +18,7 @@ import SettingsPage from '@/pages/settings/SettingsPage'
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
 import AdminLoginPage from '@/pages/admin/AdminLoginPage'
 import AdminTenantsPage from '@/pages/admin/AdminTenantsPage'
+import AdminTenantAnalyticsPage from '@/pages/admin/AdminTenantAnalyticsPage'
 import AdminModulesPage from '@/pages/admin/AdminModulesPage'
 import AdminAgentsPage from '@/pages/admin/AdminAgentsPage'
 import AdminSystemPage from '@/pages/admin/AdminSystemPage'
@@ -218,6 +218,7 @@ function App() {
               {/* Admin pages */}
               <Route path="dashboard" element={<AdminDashboardPage />} />
               <Route path="tenants" element={<AdminTenantsPage />} />
+              <Route path="tenants/:id/analytics" element={<AdminTenantAnalyticsPage />} />
               <Route path="modules" element={<AdminModulesPage />} />
               <Route path="agents" element={<AdminAgentsPage />} />
               <Route path="system" element={<AdminSystemPage />} />

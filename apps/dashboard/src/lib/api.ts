@@ -13,7 +13,7 @@ import type {
 // =========================
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -37,9 +37,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config
-    if (error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
+    const originalRequest = error?.config || {}
+    const status = error?.response?.status
+    if (status === 401 && !originalRequest._retry) {
+      ;(originalRequest as any)._retry = true
       try {
         // Intentar refrescar el token
         const { token } = await authApi.refreshToken()
@@ -79,8 +80,55 @@ export const pymeApi = {
   },
 }
 
+// Tipos Tenants
+export interface Tenant {
+  id: string
+  name: string
+  slug: string
+  domain: string | null
+  industry: string | null
+  location: string | null
+  plan: string
+  revenue: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  settings?: string | null
+}
+
+interface TenantsListResponse {
+  success: boolean
+  data: Tenant[]
+  count: number
+}
+
+export const tenantsApi = {
+  list: async (): Promise<Tenant[]> => {
+    const { data } = await api.get<TenantsListResponse>('/tenants')
+    return data.data
+  },
+  create: async (payload: Partial<Tenant> & { name: string; slug: string }): Promise<Tenant> => {
+    const { data } = await api.post<{ success: boolean; data: Tenant }>(
+      '/tenants',
+      payload
+    )
+    return data.data
+  },
+  update: async (id: string, payload: Partial<Tenant>): Promise<Tenant> => {
+    const { data } = await api.put<{ success: boolean; data: Tenant }>(
+      `/tenants/${id}`,
+      payload
+    )
+    return data.data
+  },
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/tenants/${id}`)
+  },
+}
+
 // Exportación por defecto para uso simplificado
 export default {
   ...authApi,
   ...pymeApi,
+  ...tenantsApi,
 }

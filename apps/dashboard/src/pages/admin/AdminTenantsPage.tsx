@@ -1,101 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { tenantsApi, type Tenant } from '@/lib/api'
 
-// Datos demo de PYMEs colombianas
-const demoTenants = [
-  {
-    id: '1',
-    name: 'Restaurante El Buen Sabor',
-    subdomain: 'buen-sabor',
-    plan: 'growth',
-    nit: '900123456-7',
-    city: 'Bogotá',
-    department: 'Cundinamarca',
-    industry: 'Restaurantes',
-    email: 'admin@buensabor.com',
-    phone: '+573001234567',
-    isActive: true,
-    revenue: 2800000,
-    apiCalls: 4500,
-    createdAt: '2024-08-15',
-  },
-  {
-    id: '2', 
-    name: 'Boutique María Fashion',
-    subdomain: 'maria-fashion',
-    plan: 'starter',
-    nit: '800987654-3',
-    city: 'Medellín',
-    department: 'Antioquia',
-    industry: 'Moda',
-    email: 'info@mariafashion.co',
-    phone: '+573109876543',
-    isActive: true,
-    revenue: 1200000,
-    apiCalls: 2100,
-    createdAt: '2024-09-03',
-  },
-  {
-    id: '3',
-    name: 'TechSolutions Colombia',
-    subdomain: 'techsolutions',
-    plan: 'scale',
-    nit: '901234567-8',
-    city: 'Cali',
-    department: 'Valle del Cauca',
-    industry: 'Tecnología',
-    email: 'contacto@techsolutions.com.co',
-    phone: '+573201237890',
-    isActive: true,
-    revenue: 8500000,
-    apiCalls: 12000,
-    createdAt: '2024-06-20',
-  },
-  {
-    id: '4',
-    name: 'Panadería Doña Rosa',
-    subdomain: 'dona-rosa',
-    plan: 'gratis',
-    nit: '700456789-1',
-    city: 'Barranquilla',
-    department: 'Atlántico',
-    industry: 'Alimentación',
-    email: 'rosa@panaderia.com',
-    phone: '+573154567890',
-    isActive: true,
-    revenue: 0,
-    apiCalls: 150,
-    createdAt: '2024-10-10',
-  },
-  {
-    id: '5',
-    name: 'Clínica Dental Sonrisas',
-    subdomain: 'sonrisas',
-    plan: 'growth',
-    nit: '800555444-2',
-    city: 'Bucaramanga',
-    department: 'Santander',
-    industry: 'Salud',
-    email: 'citas@sonrisas.com.co',
-    phone: '+573175554444',
-    isActive: false,
-    revenue: 3200000,
-    apiCalls: 3800,
-    createdAt: '2024-07-12',
-  }
-]
+// Fuente de verdad: API /api/v1/tenants
 
 // Función para obtener el color del plan
 function getPlanBadge(plan: string) {
   const variants = {
-    gratis: { variant: 'outline' as const, color: 'text-gray-600' },
+    free: { variant: 'outline' as const, color: 'text-gray-600' },
     starter: { variant: 'default' as const, color: 'text-blue-600' },
     growth: { variant: 'default' as const, color: 'text-green-600' },
     scale: { variant: 'default' as const, color: 'text-purple-600' }
   }
-  return variants[plan as keyof typeof variants] || variants.gratis
+  return variants[plan as keyof typeof variants] || variants.free
 }
 
 // Función para formatear currency en COP
@@ -108,17 +28,175 @@ function formatCOP(amount: number) {
 }
 
 export default function AdminTenantsPage() {
-  const [selectedFilter, setSelectedFilter] = useState('all')
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'free' | 'starter' | 'growth' | 'scale'>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [tenants, setTenants] = useState<Tenant[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [editTenant, setEditTenant] = useState<Tenant | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
 
-  // Filtrar tenants
-  const filteredTenants = demoTenants.filter(tenant => {
-    const matchesFilter = selectedFilter === 'all' || tenant.plan === selectedFilter
-    const matchesSearch = tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tenant.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tenant.industry.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesFilter && matchesSearch
-  })
+  // Cerrar modales con Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setCreateOpen(false)
+        setEditTenant(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const refetch = async () => {
+    try {
+      setLoading(true)
+      const data = await tenantsApi.list()
+      setTenants(data)
+    } catch (e: any) {
+      console.error('Error cargando tenants', e)
+      setError(e?.message ?? 'Error cargando tenants')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      try {
+        setLoading(true)
+        const data = await tenantsApi.list()
+        if (active) setTenants(data)
+      } catch (e: any) {
+        console.error('Error cargando tenants', e)
+        if (active) setError(e?.response?.data?.error || e?.message || 'Error cargando tenants')
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
+  }, [])
+
+  // Crear Tenant
+  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = new FormData(e.currentTarget)
+    // Normalizar y validar inputs
+    const name = String(form.get('name') || '').trim()
+    let slug = String(form.get('slug') || '').trim().toLowerCase()
+    slug = slug
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quitar acentos
+      .replace(/[^a-z0-9-]/g, '-')                       // solo a-z0-9-
+      .replace(/-+/g, '-')                               // sin duplicados
+      .replace(/^-|-$/g, '')                             // sin guiones extremos
+    if (!name || !slug) {
+      setError('Nombre y slug son obligatorios')
+      setSuccess(null)
+      return
+    }
+    if (tenants.some(t => t.slug === slug)) {
+      setError('Ya existe un tenant con ese slug')
+      setSuccess(null)
+      return
+    }
+    const payload = {
+      name,
+      slug,
+      domain: String(form.get('domain') || ''),
+      plan: String(form.get('plan') || 'free'),
+      is_active: form.get('is_active') === 'on',
+      industry: String(form.get('industry') || ''),
+      location: String(form.get('location') || ''),
+      revenue: 0,
+    }
+    try {
+      setCreating(true)
+      await tenantsApi.create(payload as any)
+      setCreateOpen(false)
+      setError(null)
+      setSuccess('PYME creada correctamente')
+      await refetch()
+    } catch (err: any) {
+      console.error('Error creando tenant', err)
+      setSuccess(null)
+      setError(err?.response?.data?.error || err?.message || 'Error creando tenant')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  // Guardar edición
+  const handleSaveEdit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!editTenant) return
+    const form = new FormData(e.currentTarget)
+    // Normalizar slug como en creación
+    const name = String(form.get('name') || editTenant.name).trim()
+    let slug = String(form.get('slug') || editTenant.slug).trim().toLowerCase()
+    slug = slug
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+    const payload = {
+      name,
+      slug,
+      domain: String(form.get('domain') || editTenant.domain || ''),
+      plan: String(form.get('plan') || editTenant.plan),
+      is_active: form.get('is_active') ? true : false,
+      industry: String(form.get('industry') || editTenant.industry || ''),
+      location: String(form.get('location') || editTenant.location || ''),
+      revenue: Number(form.get('revenue') || editTenant.revenue || 0),
+    }
+    try {
+      setSavingEdit(true)
+      await tenantsApi.update(editTenant.id, payload as any)
+      setEditTenant(null)
+      setError(null)
+      setSuccess('PYME actualizada correctamente')
+      await refetch()
+    } catch (err: any) {
+      console.error('Error actualizando tenant', err)
+      setSuccess(null)
+      setError(err?.response?.data?.error || err?.message || 'Error actualizando tenant')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  // Eliminar tenant
+  const handleDelete = async (tenant: Tenant) => {
+    if (!confirm(`¿Eliminar la PYME "${tenant.name}"?`)) return
+    try {
+      await tenantsApi.remove(tenant.id)
+      setError(null)
+      setSuccess('PYME eliminada correctamente')
+      await refetch()
+    } catch (err) {
+      console.error('Error eliminando tenant', err)
+      setSuccess(null)
+      setError('Error eliminando tenant')
+    }
+  }
+
+  const filteredTenants = useMemo(() => {
+    const term = searchTerm.toLowerCase()
+    return tenants.filter(t => {
+      const matchesFilter = selectedFilter === 'all' || t.plan === selectedFilter
+      const matchesSearch = (
+        t.name?.toLowerCase().includes(term) ||
+        t.industry?.toLowerCase().includes(term) ||
+        t.location?.toLowerCase().includes(term) ||
+        t.domain?.toLowerCase().includes(term) ||
+        t.slug?.toLowerCase().includes(term)
+      )
+      return matchesFilter && matchesSearch
+    })
+  }, [tenants, selectedFilter, searchTerm])
 
   return (
     <div className="space-y-6">
@@ -131,21 +209,137 @@ export default function AdminTenantsPage() {
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => alert('Exportación aún no implementada')}>
             📊 Exportar Lista
           </Button>
-          <Button>
+          <Button onClick={() => setCreateOpen(true)}>
             ➕ Agregar PYME
           </Button>
         </div>
       </div>
+
+      {/* Banners de estado */}
+      {(error || success) && (
+        <Card>
+          <CardContent className={`pt-4 ${error ? 'text-red-700' : 'text-green-700'}`}>
+            <div className="flex items-center justify-between">
+              <div>{error ?? success}</div>
+              <Button size="sm" variant="outline" onClick={() => { setError(null); setSuccess(null) }}>Cerrar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Modal Editar Tenant */}
+      {editTenant && (
+        <Card>
+          <CardHeader>
+            <CardTitle>⚙️ Editar PYME</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSaveEdit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Nombre</label>
+                <input name="name" defaultValue={editTenant.name} className="w-full border rounded px-3 py-2" required />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Slug</label>
+                <input name="slug" defaultValue={editTenant.slug} className="w-full border rounded px-3 py-2" required />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Dominio</label>
+                <input name="domain" defaultValue={editTenant.domain || ''} className="w-full border rounded px-3 py-2" />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Plan</label>
+                <select name="plan" defaultValue={editTenant.plan} className="w-full border rounded px-3 py-2">
+                  <option value="free">Gratis</option>
+                  <option value="starter">Starter</option>
+                  <option value="growth">Growth</option>
+                  <option value="scale">Scale</option>
+                </select>
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Industria</label>
+                <input name="industry" defaultValue={editTenant.industry || ''} className="w-full border rounded px-3 py-2" />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Ubicación</label>
+                <input name="location" defaultValue={editTenant.location || ''} className="w-full border rounded px-3 py-2" />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Revenue (COP)</label>
+                <input name="revenue" type="number" min={0} step={1000} defaultValue={Number(editTenant.revenue || 0)} className="w-full border rounded px-3 py-2" />
+              </div>
+              <div className="col-span-1 flex items-center gap-2">
+                <input id="is_active_edit" name="is_active" type="checkbox" defaultChecked={!!editTenant.is_active} />
+                <label htmlFor="is_active_edit">Activa</label>
+              </div>
+              <div className="col-span-2 flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setEditTenant(null)}>Cancelar</Button>
+                <Button type="submit" disabled={savingEdit}>{savingEdit ? 'Guardando...' : 'Guardar Cambios'}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Modal Crear Tenant */}
+      {createOpen && (
+        <Card>
+          <CardHeader>
+            <CardTitle>➕ Agregar PYME</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Nombre</label>
+                <input name="name" className="w-full border rounded px-3 py-2" required />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Slug</label>
+                <input name="slug" className="w-full border rounded px-3 py-2" placeholder="mi-pyme" required />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Dominio</label>
+                <input name="domain" className="w-full border rounded px-3 py-2" placeholder="mi-pyme.com" />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Plan</label>
+                <select name="plan" className="w-full border rounded px-3 py-2" defaultValue="free">
+                  <option value="free">Gratis</option>
+                  <option value="starter">Starter</option>
+                  <option value="growth">Growth</option>
+                  <option value="scale">Scale</option>
+                </select>
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Industria</label>
+                <input name="industry" className="w-full border rounded px-3 py-2" placeholder="Restaurantes" />
+              </div>
+              <div className="col-span-1">
+                <label className="block text-sm mb-1">Ubicación</label>
+                <input name="location" className="w-full border rounded px-3 py-2" placeholder="Bogotá" />
+              </div>
+              <div className="col-span-1 flex items-center gap-2">
+                <input id="is_active" name="is_active" type="checkbox" defaultChecked />
+                <label htmlFor="is_active">Activa</label>
+              </div>
+              <div className="col-span-2 flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                <Button type="submit" disabled={creating}>{creating ? 'Creando...' : 'Crear'}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Métricas rápidas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{demoTenants.length}</div>
+              <div className="text-2xl font-bold text-blue-600">{tenants.length}</div>
               <p className="text-sm text-muted-foreground">Total PYMEs</p>
             </div>
           </CardContent>
@@ -154,7 +348,7 @@ export default function AdminTenantsPage() {
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {demoTenants.filter(t => t.isActive).length}
+                {tenants.filter(t => t.is_active).length}
               </div>
               <p className="text-sm text-muted-foreground">Activas</p>
             </div>
@@ -164,7 +358,7 @@ export default function AdminTenantsPage() {
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {formatCOP(demoTenants.reduce((sum, t) => sum + t.revenue, 0))}
+                {formatCOP(tenants.reduce((sum, t) => sum + (t.revenue || 0), 0))}
               </div>
               <p className="text-sm text-muted-foreground">Revenue Total</p>
             </div>
@@ -174,9 +368,9 @@ export default function AdminTenantsPage() {
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600">
-                {demoTenants.reduce((sum, t) => sum + t.apiCalls, 0).toLocaleString()}
+                {tenants.length.toLocaleString()}
               </div>
-              <p className="text-sm text-muted-foreground">API Calls</p>
+              <p className="text-sm text-muted-foreground">Tenants cargados</p>
             </div>
           </CardContent>
         </Card>
@@ -195,35 +389,35 @@ export default function AdminTenantsPage() {
                 size="sm"
                 onClick={() => setSelectedFilter('all')}
               >
-                Todos ({demoTenants.length})
+                Todos ({tenants.length})
               </Button>
               <Button 
-                variant={selectedFilter === 'gratis' ? 'default' : 'outline'} 
+                variant={selectedFilter === 'free' ? 'default' : 'outline'} 
                 size="sm"
-                onClick={() => setSelectedFilter('gratis')}
+                onClick={() => setSelectedFilter('free')}
               >
-                Gratis ({demoTenants.filter(t => t.plan === 'gratis').length})
+                Gratis ({tenants.filter(t => t.plan === 'free').length})
               </Button>
               <Button 
                 variant={selectedFilter === 'starter' ? 'default' : 'outline'} 
                 size="sm"
                 onClick={() => setSelectedFilter('starter')}
               >
-                Starter ({demoTenants.filter(t => t.plan === 'starter').length})
+                Starter ({tenants.filter(t => t.plan === 'starter').length})
               </Button>
               <Button 
                 variant={selectedFilter === 'growth' ? 'default' : 'outline'} 
                 size="sm"
                 onClick={() => setSelectedFilter('growth')}
               >
-                Growth ({demoTenants.filter(t => t.plan === 'growth').length})
+                Growth ({tenants.filter(t => t.plan === 'growth').length})
               </Button>
               <Button 
                 variant={selectedFilter === 'scale' ? 'default' : 'outline'} 
                 size="sm"
                 onClick={() => setSelectedFilter('scale')}
               >
-                Scale ({demoTenants.filter(t => t.plan === 'scale').length})
+                Scale ({tenants.filter(t => t.plan === 'scale').length})
               </Button>
             </div>
             <input
@@ -239,7 +433,13 @@ export default function AdminTenantsPage() {
 
       {/* Lista de Tenants */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredTenants.map((tenant) => (
+        {loading && (
+          <Card><CardContent className="pt-6">Cargando PYMEs...</CardContent></Card>
+        )}
+        {error && !loading && (
+          <Card><CardContent className="pt-6 text-red-600">{error}</CardContent></Card>
+        )}
+        {!loading && !error && filteredTenants.map((tenant) => (
           <Card key={tenant.id} className="hover:shadow-md transition-shadow">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -248,7 +448,7 @@ export default function AdminTenantsPage() {
                   <Badge {...getPlanBadge(tenant.plan)}>
                     {tenant.plan.toUpperCase()}
                   </Badge>
-                  {tenant.isActive ? (
+                  {tenant.is_active ? (
                     <Badge variant="default" className="bg-green-100 text-green-800">
                       ✅ Activa
                     </Badge>
@@ -264,43 +464,46 @@ export default function AdminTenantsPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subdomain:</span>
-                  <span className="font-mono">{tenant.subdomain}.tause.pro</span>
+                  <span className="font-mono">{tenant.slug}.tause.pro</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">NIT:</span>
-                  <span>{tenant.nit}</span>
+                  <span>-</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ubicación:</span>
-                  <span>{tenant.city}, {tenant.department}</span>
+                  <span>{tenant.location || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Industria:</span>
-                  <span>{tenant.industry}</span>
+                  <span>{tenant.industry || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Revenue:</span>
-                  <span className="font-semibold">{formatCOP(tenant.revenue)}</span>
+                  <span className="font-semibold">{formatCOP(tenant.revenue || 0)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">API Calls:</span>
-                  <span>{tenant.apiCalls.toLocaleString()}</span>
+                  <span className="text-muted-foreground">Dominio:</span>
+                  <span>{tenant.domain || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Desde:</span>
-                  <span>{new Date(tenant.createdAt).toLocaleDateString('es-CO')}</span>
+                  <span>{new Date(tenant.created_at).toLocaleDateString('es-CO')}</span>
                 </div>
               </div>
               
-              <div className="mt-4 flex space-x-2">
-                <Button variant="outline" size="sm">
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => setEditTenant(tenant)}>
                   👁️ Ver Detalles
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => setEditTenant(tenant)}>
                   ⚙️ Configurar
                 </Button>
-                <Button variant="outline" size="sm">
-                  📊 Analytics
+                <Link to={`/admin/tenants/${tenant.id}/analytics`} title="Ver Analytics">
+                  <Button variant="outline" size="sm">📊 Analytics</Button>
+                </Link>
+                <Button variant="outline" size="sm" onClick={() => handleDelete(tenant)}>
+                  🗑️ Eliminar
                 </Button>
               </div>
             </CardContent>
@@ -309,7 +512,7 @@ export default function AdminTenantsPage() {
       </div>
 
       {/* Mensaje si no hay resultados */}
-      {filteredTenants.length === 0 && (
+      {!loading && !error && filteredTenants.length === 0 && (
         <Card>
           <CardContent className="pt-6">
             <div className="text-center text-muted-foreground">
@@ -320,4 +523,4 @@ export default function AdminTenantsPage() {
       )}
     </div>
   )
-} 
+}
